@@ -1,0 +1,1 @@
+# ec-crypto: An experimental repository for efficient and safe Elliptic Curve Cryptography in Golang
