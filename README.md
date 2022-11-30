@@ -1,1 +1,11 @@
-# ec-crypto: An experimental repository for efficient and safe Elliptic Curve Cryptography in Golang
+# go-curve: Efficient and safe elliptic curve cryptography
+
+## Dependencies
+
+Install [Go](https://go.dev).
+
+## Build & Test
+
+```
+go test ./...
+```
