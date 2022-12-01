@@ -15,6 +15,8 @@ type Generator[C Curve] interface {
 	RandomScalar(io.Reader) (Scalar[C], error)
 	NewScalar(*big.Int) Scalar[C]
 	HashToScalar([]byte) Scalar[C]
+	EncodeToPoint([]byte) (Point[C], error)
+	DecodeFromPoint(Point[C]) []byte
 }
 
 type Point[C Curve] interface {

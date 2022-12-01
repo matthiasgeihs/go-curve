@@ -64,3 +64,11 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 	}
 	return makeScalar(&v)
 }
+
+func (Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
+
+}
+
+func (Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
+
+}

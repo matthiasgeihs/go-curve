@@ -8,11 +8,10 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve"
 )
 
-type SecretKey[P curve.Curve] curve.Scalar[P]
-type PubKey[P curve.Curve] curve.Point[P]
-type Sig[P curve.Curve] struct {
-	r curve.Scalar[P]
-	s curve.Scalar[P]
+type SecretKey[C curve.Curve] curve.Scalar[C]
+type PubKey[C curve.Curve] curve.Point[C]
+type Sig[C curve.Curve] struct {
+	r, s curve.Scalar[C]
 }
 
 type ECDSA[C curve.Curve] struct {
