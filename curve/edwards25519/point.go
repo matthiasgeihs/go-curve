@@ -34,6 +34,15 @@ func makePointFromAffine(x, y *big.Int) Point {
 	return makePoint(jp)
 }
 
+func makePointFromAffineX(x *big.Int) Point {
+	xf := newFieldElement(x)
+	p, err := new(edwards25519.Point).SetBytes(xf.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	return makePoint(p)
+}
+
 func newFieldElement(v *big.Int) *field.Element {
 	vMod := new(big.Int).Mod(v, fieldOrder)
 	b := littleEndian(vMod)

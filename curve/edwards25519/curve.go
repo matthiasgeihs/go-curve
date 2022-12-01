@@ -2,6 +2,7 @@ package edwards25519
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -66,9 +67,14 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 }
 
 func (Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
+	bi := new(big.Int).SetBytes(data)
+	if bi.Cmp(fieldOrder) >= 0 {
+		return nil, fmt.Errorf("data exceeds message space")
+	}
 
+	return makePointFromAffineX(bi), nil
 }
 
 func (Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
-
+	return p.X().Bytes()
 }
