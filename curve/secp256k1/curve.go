@@ -54,15 +54,51 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 	return makeScalar(&v)
 }
 
+const fieldSize = 64
+const maxMessageLength = fieldSize / 2
+const idxMessageLength = 0
+const idxMessageStart = 1
+const idxMsgEnd = idxMessageStart + maxMessageLength
+
 func (Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
-	bi := new(big.Int).SetBytes(data)
-	if bi.Cmp(secp.Params().P) >= 0 {
+	if len(data) > maxMessageLength {
 		return nil, fmt.Errorf("data exceeds message space")
 	}
 
-	return makePointFromAffineX(bi), nil
+	var m [fieldSize]byte // len(data) || data || counter
+	m[idxMessageLength] = safeCastIntToByte(len(data))
+	copy(m[1:idxMsgEnd], data)
+
+	counter := big.NewInt(0)
+	mi := new(big.Int)
+	var p Point
+	var err error
+	for {
+		copy(m[idxMsgEnd:], counter.Bytes())
+		mi.SetBytes(m[:])
+		p, err = makePointFromAffineX(mi)
+		if err == nil {
+			break
+		} else if mi.Cmp(secp.Params().P) >= 0 {
+			return nil, fmt.Errorf("integer encoding exceeds field bounds")
+		}
+	}
+
+	return p, nil
 }
 
 func (Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
-	return p.X().Bytes()
+	buf := p.X().Bytes()
+	l := buf[idxMessageLength]
+	data := make([]byte, l)
+	copy(data, buf[idxMessageStart:])
+	return data
+}
+
+func safeCastIntToByte(i int) byte {
+	const maxByteVal = 1<<8 - 1
+	if i > maxByteVal {
+		panic("input exceeds max byte value")
+	}
+	return byte(i)
 }

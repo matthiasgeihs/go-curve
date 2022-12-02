@@ -72,6 +72,7 @@ func (Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
 		return nil, fmt.Errorf("data exceeds message space")
 	}
 
+	// TODO this can panic. need to choose x more wisely
 	return makePointFromAffineX(bi), nil
 }
 
