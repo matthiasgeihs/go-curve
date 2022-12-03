@@ -54,7 +54,7 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 	return makeScalar(&v)
 }
 
-const fieldSize = 64
+const fieldSize = 32
 const maxMessageLength = fieldSize / 2
 const idxMessageLength = 0
 const idxMessageStart = 1
@@ -82,13 +82,16 @@ func (Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
 		} else if mi.Cmp(secp.Params().P) >= 0 {
 			return nil, fmt.Errorf("integer encoding exceeds field bounds")
 		}
+		counter.Add(counter, big.NewInt(1))
 	}
 
 	return p, nil
 }
 
 func (Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
-	buf := p.X().Bytes()
+	pPoint := p.(Point).p
+	pPoint.ToAffine()
+	buf := pPoint.X.Bytes()
 	l := buf[idxMessageLength]
 	data := make([]byte, l)
 	copy(data, buf[idxMessageStart:])

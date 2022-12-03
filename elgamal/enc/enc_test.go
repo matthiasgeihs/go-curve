@@ -11,7 +11,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/elgamal/enc"
 )
 
-func TestECDSA_secp256k1(t *testing.T) {
+func TestCipher_secp256k1(t *testing.T) {
 	instance := enc.NewCipher[secp256k1.Curve](
 		secp256k1.NewGenerator(),
 		rand.Reader,
@@ -19,7 +19,7 @@ func TestECDSA_secp256k1(t *testing.T) {
 	testCipher(t, instance)
 }
 
-func TestECDSA_edwards25519(t *testing.T) {
+func TestCipher_edwards25519(t *testing.T) {
 	instance := enc.NewCipher[edwards25519.Curve](
 		edwards25519.NewGenerator(),
 		rand.Reader,
@@ -33,7 +33,7 @@ func testCipher[C curve.Curve](t *testing.T, instance enc.Cipher[C]) {
 		t.Fatal(err)
 	}
 
-	msg := []byte("Hello, Singapore!")
+	msg := []byte("Hi, Singapore!")
 	ct, err := instance.Encrypt(pk, msg)
 	if err != nil {
 		t.Fatal(err)
