@@ -47,10 +47,8 @@ func makePointFromAffineX(x *big.Int) (Point, error) {
 
 func newFieldElement(v *big.Int) *field.Element {
 	vMod := new(big.Int).Mod(v, fieldOrder)
-	b := littleEndian(vMod)
-	buf := make([]byte, fieldElementSize)
-	copy(buf, b)
-	fe, err := new(field.Element).SetBytes(buf)
+	le := littleEndian(vMod, fieldElementSize)
+	fe, err := new(field.Element).SetBytes(le)
 	if err != nil {
 		panic(err)
 	}

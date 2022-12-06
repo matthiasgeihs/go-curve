@@ -22,10 +22,8 @@ func makeScalar(v *edwards25519.Scalar) Scalar {
 
 func makeScalarFromBigInt(v *big.Int) Scalar {
 	vMod := new(big.Int).Mod(v, generatorOrder)
-	b := littleEndian(vMod)
-	buf := make([]byte, scalarByteSize)
-	copy(buf, b)
-	vScalar, err := edwards25519.NewScalar().SetCanonicalBytes(buf)
+	le := littleEndian(vMod, scalarByteSize)
+	vScalar, err := edwards25519.NewScalar().SetCanonicalBytes(le)
 	if err != nil {
 		panic(err)
 	}
@@ -35,10 +33,13 @@ func makeScalarFromBigInt(v *big.Int) Scalar {
 	}
 }
 
-func littleEndian(v *big.Int) []byte {
-	b := v.Bytes()
-	reverse(b)
-	return b
+// littleEndian computes the little endian representation of v with length l.
+func littleEndian(v *big.Int, l int) []byte {
+	vb := v.Bytes()
+	reverse(vb)
+	buf := make([]byte, l)
+	copy(buf, vb)
+	return buf
 }
 
 // Reverse slice in-place.

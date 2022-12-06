@@ -68,7 +68,7 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 	h := sha256.Sum256(data)
 	bi := new(big.Int).SetBytes(h[:])
 	bi.Mod(bi, generatorOrder)
-	le := littleEndian(bi)
+	le := littleEndian(bi, scalarByteSize)
 	var v edwards25519.Scalar
 	_, err := v.SetCanonicalBytes(le)
 	if err != nil {
