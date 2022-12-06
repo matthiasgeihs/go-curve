@@ -21,8 +21,7 @@ func makePoint(p *secp.JacobianPoint) Point {
 	}
 }
 
-// makePointFromAffineX computes a point from an x-coordinate. Panics if such a
-// point does not exist.
+// makePointFromAffineX computes a point from an x-coordinate.
 func makePointFromAffineX(x *big.Int) (Point, error) {
 	fx := makeFieldVal(x)
 	ySquared := new(secp.FieldVal).SquareVal(fx).Mul(fx).AddInt(7).Normalize()

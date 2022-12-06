@@ -2,7 +2,6 @@ package secp256k1
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"io"
 	"math/big"
 
@@ -10,13 +9,26 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve"
 )
 
-type Curve struct{}
+type Curve struct {
+	encoder curve.Encoder[Curve]
+}
 
 // Check that type implements interface.
 var _ curve.Generator[Curve] = Curve{}
 
 func NewGenerator() Curve {
-	return Curve{}
+	const fieldSize = 32
+	const maxMessageLength = fieldSize / 2
+	return Curve{
+		encoder: curve.NewEncoder(
+			fieldSize,
+			secp.Params().P,
+			maxMessageLength,
+			func(i *big.Int) (curve.Point[Curve], error) {
+				return makePointFromAffineX(i)
+			},
+		),
+	}
 }
 
 func (Curve) NewPoint(x, y *big.Int) curve.Point[Curve] {
@@ -54,54 +66,10 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 	return makeScalar(&v)
 }
 
-const fieldSize = 32
-const maxMessageLength = fieldSize / 2
-const idxMessageLength = 0
-const idxMessageStart = 1
-const idxMsgEnd = idxMessageStart + maxMessageLength
-
-func (Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
-	if len(data) > maxMessageLength {
-		return nil, fmt.Errorf("data exceeds message space")
-	}
-
-	var m [fieldSize]byte // len(data) || data || counter
-	m[idxMessageLength] = safeCastIntToByte(len(data))
-	copy(m[1:idxMsgEnd], data)
-
-	counter := big.NewInt(0)
-	mi := new(big.Int)
-	var p Point
-	var err error
-	for {
-		copy(m[idxMsgEnd:], counter.Bytes())
-		mi.SetBytes(m[:])
-		p, err = makePointFromAffineX(mi)
-		if err == nil {
-			break
-		} else if mi.Cmp(secp.Params().P) >= 0 {
-			return nil, fmt.Errorf("integer encoding exceeds field bounds")
-		}
-		counter.Add(counter, big.NewInt(1))
-	}
-
-	return p, nil
+func (c Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
+	return c.encoder.EncodeToPoint(data)
 }
 
-func (Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
-	pPoint := p.(Point).p
-	pPoint.ToAffine()
-	buf := pPoint.X.Bytes()
-	l := buf[idxMessageLength]
-	data := make([]byte, l)
-	copy(data, buf[idxMessageStart:])
-	return data
-}
-
-func safeCastIntToByte(i int) byte {
-	const maxByteVal = 1<<8 - 1
-	if i > maxByteVal {
-		panic("input exceeds max byte value")
-	}
-	return byte(i)
+func (c Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
+	return c.encoder.DecodeFromPoint(p)
 }

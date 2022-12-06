@@ -1,6 +1,7 @@
 package edwards25519
 
 import (
+	"fmt"
 	"math/big"
 
 	"filippo.io/edwards25519"
@@ -34,13 +35,14 @@ func makePointFromAffine(x, y *big.Int) Point {
 	return makePoint(jp)
 }
 
-func makePointFromAffineX(x *big.Int) Point {
+// makePointFromAffineX computes a point from an x-coordinate.
+func makePointFromAffineX(x *big.Int) (Point, error) {
 	xf := newFieldElement(x)
 	p, err := new(edwards25519.Point).SetBytes(xf.Bytes())
 	if err != nil {
-		panic(err)
+		return Point{}, fmt.Errorf("creating point from bytes: %w", err)
 	}
-	return makePoint(p)
+	return makePoint(p), nil
 }
 
 func newFieldElement(v *big.Int) *field.Element {
