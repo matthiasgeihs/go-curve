@@ -8,7 +8,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve/edwards25519"
 	"github.com/matthiasgeihs/go-curve/curve/secp256k1"
 	"github.com/matthiasgeihs/go-curve/sigma"
-	"github.com/matthiasgeihs/go-curve/sigma/schnorr/dlog"
+	"github.com/matthiasgeihs/go-curve/sigma/dlog"
 )
 
 func TestProtocol_secp256k1(t *testing.T) {
