@@ -44,6 +44,12 @@ func (s Scalar) Add(t curve.Scalar[Curve]) curve.Scalar[Curve] {
 	return makeScalar(&sum)
 }
 
+func (s Scalar) Sub(t curve.Scalar[Curve]) curve.Scalar[Curve] {
+	var sum secp.ModNScalar
+	sum.Add2(s.v, t.(Scalar).v.Negate())
+	return makeScalar(&sum)
+}
+
 func (s Scalar) Mul(t curve.Scalar[Curve]) curve.Scalar[Curve] {
 	var prod secp.ModNScalar
 	prod.Mul2(s.v, t.(Scalar).v)

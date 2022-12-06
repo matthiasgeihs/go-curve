@@ -59,6 +59,11 @@ func (s Scalar) Add(t curve.Scalar[Curve]) curve.Scalar[Curve] {
 	return makeScalar(sum)
 }
 
+func (s Scalar) Sub(t curve.Scalar[Curve]) curve.Scalar[Curve] {
+	sum := edwards25519.NewScalar().Subtract(s.v, t.(Scalar).v)
+	return makeScalar(sum)
+}
+
 func (s Scalar) Mul(t curve.Scalar[Curve]) curve.Scalar[Curve] {
 	prod := edwards25519.NewScalar().Multiply(s.v, t.(Scalar).v)
 	return makeScalar(prod)
