@@ -46,17 +46,17 @@ func (e Encoder[C]) EncodeToPoint(data []byte) (Point[C], error) {
 	copy(m[1:idxMsgEnd], data)
 
 	counter := big.NewInt(0)
-	mi := new(big.Int)
 	var p Point[C]
 	var err error
 	for {
 		copy(m[idxMsgEnd:], counter.Bytes())
-		mi.SetBytes(m[:])
+		mi := newBigIntFromLittleEndian(m)
+		if mi.Cmp(e.fieldOrder) >= 0 {
+			return nil, fmt.Errorf("integer encoding exceeds field bounds")
+		}
 		p, err = e.makePoint(mi)
 		if err == nil {
 			break
-		} else if mi.Cmp(e.fieldOrder) >= 0 {
-			return nil, fmt.Errorf("integer encoding exceeds field bounds")
 		}
 		counter.Add(counter, big.NewInt(1))
 	}
@@ -65,7 +65,7 @@ func (e Encoder[C]) EncodeToPoint(data []byte) (Point[C], error) {
 }
 
 func (e Encoder[C]) DecodeFromPoint(p Point[C]) []byte {
-	buf := p.X().Bytes()
+	buf := bigIntToLittleEndianBytes(p.X())
 	l := buf[idxMessageLength]
 	data := make([]byte, l)
 	copy(data, buf[idxMessageStart:])
@@ -78,4 +78,21 @@ func safeCastIntToByte(i int) byte {
 		panic("input exceeds max byte value")
 	}
 	return byte(i)
+}
+
+func newBigIntFromLittleEndian(b []byte) *big.Int {
+	rev := make([]byte, len(b))
+	for i, x := range b {
+		rev[len(rev)-1-i] = x
+	}
+	return new(big.Int).SetBytes(rev)
+}
+
+func bigIntToLittleEndianBytes(i *big.Int) []byte {
+	b := i.Bytes()
+	rev := make([]byte, len(b))
+	for i, x := range b {
+		rev[len(rev)-1-i] = x
+	}
+	return rev
 }

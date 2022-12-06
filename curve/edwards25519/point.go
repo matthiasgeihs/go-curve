@@ -38,9 +38,31 @@ func makePointFromAffine(x, y *big.Int) Point {
 // makePointFromAffineX computes a point from an x-coordinate.
 func makePointFromAffineX(x *big.Int) (Point, error) {
 	xf := newFieldElement(x)
-	p, err := new(edwards25519.Point).SetBytes(xf.Bytes())
+
+	// d = 121665 / 121666
+	d := func() *field.Element {
+		d1 := newFieldElementFromInt64(121665)
+		d2 := newFieldElementFromInt64(121666)
+		d2 = d2.Invert(d2)
+		return new(field.Element).Multiply(d1, d2)
+	}()
+
+	// y^2 = (1 + x^2) / (1 + d*x^2)
+	xSquared := new(field.Element).Multiply(xf, xf)
+	one := newFieldElementFromInt64(1)
+	nom := new(field.Element).Add(one, xSquared)
+	dTimesXSquared := new(field.Element).Multiply(d, xSquared)
+	denom := new(field.Element).Add(one, dTimesXSquared)
+	yf, ok := new(field.Element).SqrtRatio(nom, denom)
+	if ok != 1 {
+		return Point{}, fmt.Errorf("failed to compute square root")
+	}
+
+	zf := newFieldElement(big.NewInt(1))
+	tf := new(field.Element).Multiply(xf, yf)
+	p, err := new(edwards25519.Point).SetExtendedCoordinates(xf, yf, zf, tf)
 	if err != nil {
-		return Point{}, fmt.Errorf("creating point from bytes: %w", err)
+		return Point{}, fmt.Errorf("creating point from extended coordinates: %w", err)
 	}
 	return makePoint(p), nil
 }
@@ -53,6 +75,11 @@ func newFieldElement(v *big.Int) *field.Element {
 		panic(err)
 	}
 	return fe
+}
+
+func newFieldElementFromInt64(v int64) *field.Element {
+	vBigInt := big.NewInt(v)
+	return newFieldElement(vBigInt)
 }
 
 func (p Point) X() *big.Int {
