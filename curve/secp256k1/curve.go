@@ -9,13 +9,26 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve"
 )
 
-type Curve struct{}
+type Curve struct {
+	encoder curve.Encoder[Curve]
+}
 
 // Check that type implements interface.
 var _ curve.Generator[Curve] = Curve{}
 
 func NewGenerator() Curve {
-	return Curve{}
+	const fieldSize = 32
+	const maxMessageLength = fieldSize / 2
+	return Curve{
+		encoder: curve.NewEncoder(
+			fieldSize,
+			secp.Params().P,
+			maxMessageLength,
+			func(i *big.Int) (curve.Point[Curve], error) {
+				return makePointFromAffineX(i)
+			},
+		),
+	}
 }
 
 func (Curve) NewPoint(x, y *big.Int) curve.Point[Curve] {
@@ -51,4 +64,12 @@ func (Curve) HashToScalar(data []byte) curve.Scalar[Curve] {
 	var v secp.ModNScalar
 	v.SetByteSlice(h[:])
 	return makeScalar(&v)
+}
+
+func (c Curve) EncodeToPoint(data []byte) (curve.Point[Curve], error) {
+	return c.encoder.EncodeToPoint(data)
+}
+
+func (c Curve) DecodeFromPoint(p curve.Point[Curve]) []byte {
+	return c.encoder.DecodeFromPoint(p)
 }

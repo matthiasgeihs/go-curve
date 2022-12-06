@@ -1,6 +1,7 @@
 package secp256k1
 
 import (
+	"fmt"
 	"math/big"
 
 	secp "github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -18,6 +19,23 @@ func makePoint(p *secp.JacobianPoint) Point {
 	return Point{
 		p: p,
 	}
+}
+
+// makePointFromAffineX computes a point from an x-coordinate.
+func makePointFromAffineX(x *big.Int) (Point, error) {
+	fx := makeFieldVal(x)
+	ySquared := new(secp.FieldVal).SquareVal(fx).Mul(fx).AddInt(7).Normalize()
+	fy := new(secp.FieldVal)
+	success := fy.SquareRootVal(ySquared)
+	if !success {
+		return Point{}, fmt.Errorf("failed to compute square root")
+	}
+	p := secp.MakeJacobianPoint(
+		fx,
+		fy,
+		makeFieldVal(big.NewInt(1)),
+	)
+	return makePoint(&p), nil
 }
 
 func makeFieldVal(v *big.Int) *secp.FieldVal {
