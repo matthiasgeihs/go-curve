@@ -30,7 +30,7 @@ type Response[C curve.Curve, P sigma.Protocol[C]] struct {
 func (p Prover[C, P]) Commit(
 	x sigma.Word[C, P],
 	w sigma.Witness[C, P],
-	enc enc.Encrypt[C, P],
+	enc enc.Encrypt,
 ) (
 	Commitment[C, P],
 	Decommitment[C, P],

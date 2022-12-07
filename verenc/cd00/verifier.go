@@ -6,6 +6,7 @@ import (
 
 	"github.com/matthiasgeihs/go-curve/curve"
 	"github.com/matthiasgeihs/go-curve/sigma"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
 )
 
 type Verifier[C curve.Curve, P sigma.Protocol[C]] struct {
@@ -14,31 +15,45 @@ type Verifier[C curve.Curve, P sigma.Protocol[C]] struct {
 }
 type Word[C curve.Curve] curve.Point[C]
 type Challenge bool
-type Ciphertext[C curve.Curve, P sigma.Protocol[C]] struct{}
+type Ciphertext[C curve.Curve, P sigma.Protocol[C]] struct {
+	c      Challenge
+	c0, c1 sigma.Challenge[C, P]
+	e      enc.Ciphertext
+	s      sigma.Response[C, P]
+}
 
-func (v Verifier[C, P]) Challenge(
-	sigma.Commitment[C, P],
-) (
-	sigma.Challenge[C, P],
-	error,
-) {
-	c := func() byte {
+func (v Verifier[C, P]) Challenge(Commitment[C, P]) Challenge {
+	c := func() bool {
 		var b [1]byte
 		v.rnd.Read(b[:])
-		return b[0] & 1
+		return b[0]&1 == 1
 	}()
-	return c, nil
+	return Challenge(c)
 }
 
 func (v Verifier[C, P]) Verify(
 	x sigma.Word[C, P],
 	com Commitment[C, P],
-	ch sigma.Challenge[C, P],
-	resp sigma.Response[C, P],
+	ch Challenge,
+	resp Response[C, P],
 ) (Ciphertext[C, P], error) {
-	b := v.sigmaV.Verify(x, com.t, ch, resp.s)
+	sigmaCh := func() sigma.Challenge[C, P] {
+		if ch {
+			return com.ch1
+		}
+		return com.ch0
+	}()
+
+	b := v.sigmaV.Verify(x, com.t, sigmaCh, resp.s)
 	if !b {
-		return nil, fmt.Errorf("invalid")
+		return Ciphertext[C, P]{}, fmt.Errorf("invalid")
 	}
-	return Ciphertext[C]{c, com.e[notC], resp.s, resp.t}
+
+	e := func() enc.Ciphertext {
+		if ch {
+			return com.e1
+		}
+		return com.e0
+	}()
+	return Ciphertext[C, P]{ch, com.ch0, com.ch1, e, resp.s}, nil
 }

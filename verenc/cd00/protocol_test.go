@@ -6,6 +6,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve"
 	"github.com/matthiasgeihs/go-curve/sigma"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
 )
 
 func runProtocol[C curve.Curve, P sigma.Protocol[C]](
@@ -15,24 +16,26 @@ func runProtocol[C curve.Curve, P sigma.Protocol[C]](
 	d cd00.Decrypter[C, P],
 	x sigma.Word[C, P],
 	w sigma.Witness[C, P],
+	enc enc.Encrypt,
+	dec enc.Decrypt,
 ) {
-	com, decom, err := p.Commit(x, w, E)
+	com, decom, err := p.Commit(x, w, enc)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ch, err := v.Challenge(x, E)
+	ch := v.Challenge(com)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	resp := p.Respond(decom, ch)
-	ct, err := v.Verify(com, ch, resp)
+	ct, err := v.Verify(x, com, ch, resp)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	wDec, err := d.Decrypt(ct)
+	wDec, err := d.Decrypt(ct, dec)
 	if err != nil {
 		t.Fatal(err)
 	} else if w != wDec {
