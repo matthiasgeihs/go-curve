@@ -29,6 +29,7 @@ type Point[C Curve] interface {
 type Scalar[C Curve] interface {
 	Inv() Scalar[C]
 	Add(Scalar[C]) Scalar[C]
+	Sub(Scalar[C]) Scalar[C]
 	Mul(Scalar[C]) Scalar[C]
 	Int() *big.Int
 	Equal(Scalar[C]) bool

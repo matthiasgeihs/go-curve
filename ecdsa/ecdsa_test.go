@@ -42,4 +42,10 @@ func testECDSA[C curve.Curve](t *testing.T, instance ecdsa.ECDSA[C]) {
 	if !valid {
 		t.Error("Signature invalid")
 	}
+
+	invalidMsg := []byte("Hi, Singapore!")
+	invalid := !instance.Verify(pk, invalidMsg, sig)
+	if !invalid {
+		t.Error("Signature valid for different message")
+	}
 }
