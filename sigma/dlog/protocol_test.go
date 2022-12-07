@@ -34,7 +34,7 @@ func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
 		v := dlog.NewVerifier[C](g, rnd, word)
 		err = runProtocol(t, p, v)
 		if err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	})
 
@@ -48,7 +48,7 @@ func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
 		v := dlog.NewVerifier[C](g, rnd, word)
 		err = runProtocol(t, p, v)
 		if err == nil {
-			t.Fatal("verification should fail")
+			t.Error("verification should fail")
 		}
 	})
 

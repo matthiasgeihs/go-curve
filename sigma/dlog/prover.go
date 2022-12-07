@@ -8,7 +8,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/sigma"
 )
 
-type Prover[C curve.Curve] struct {
+type Prover[C curve.Curve, P sigma.Protocol[C]] struct {
 	gen curve.Generator[C]
 	rnd io.Reader
 	w   Witness[C]
@@ -42,9 +42,9 @@ func (p Prover[C]) Commit() (sigma.Commitment[C], sigma.Decommitment[C], error) 
 	return Commitment[C](t), Decommitment[C](r), nil
 }
 
-func (p Prover[C]) Respond(
-	decom sigma.Decommitment[C],
-	ch sigma.Challenge[C],
+func (p Prover[C, P]) Respond(
+	decom sigma.Decommitment[C, P],
+	ch sigma.Challenge[C, P],
 ) sigma.Response[C] {
 	r := decom.(Decommitment[C])
 	c := ch.(Challenge[C])
