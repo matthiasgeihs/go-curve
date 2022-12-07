@@ -13,15 +13,15 @@ import (
 
 func TestProtocol_secp256k1(t *testing.T) {
 	g := secp256k1.NewGenerator()
-	testProtocol[secp256k1.Curve](t, g)
+	testProtocol[secp256k1.Curve, dlog.Protocol](t, g)
 }
 
 func TestProtocol_edwards25519(t *testing.T) {
 	g := edwards25519.NewGenerator()
-	testProtocol[edwards25519.Curve](t, g)
+	testProtocol[edwards25519.Curve, dlog.Protocol](t, g)
 }
 
-func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
+func testProtocol[C curve.Curve, P sigma.Protocol[C]](t *testing.T, g curve.Generator[C]) {
 	rnd := rand.Reader
 	w, err := g.RandomScalar(rnd)
 	if err != nil {
@@ -30,8 +30,8 @@ func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
 	word := g.Generator().Mul(w)
 
 	t.Run("honest", func(t *testing.T) {
-		p := dlog.NewProver[C](g, rnd, w)
-		v := dlog.NewVerifier[C](g, rnd, word)
+		p := dlog.NewProver[C, P](g, rnd, w)
+		v := dlog.NewVerifier[C, P](g, rnd, word)
 		err = runProtocol(t, p, v)
 		if err != nil {
 			t.Error(err)
@@ -44,8 +44,8 @@ func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
 		if err != nil {
 			panic(err)
 		}
-		p := dlog.NewProver[C](g, rnd, w)
-		v := dlog.NewVerifier[C](g, rnd, word)
+		p := dlog.NewProver[C, P](g, rnd, w)
+		v := dlog.NewVerifier[C, P](g, rnd, word)
 		err = runProtocol(t, p, v)
 		if err == nil {
 			t.Error("verification should fail")
@@ -53,9 +53,9 @@ func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
 	})
 
 	t.Run("extract", func(t *testing.T) {
-		p := dlog.NewProver[C](g, rnd, w)
-		v := dlog.NewVerifier[C](g, rnd, word)
-		e := dlog.NewExtractor(g)
+		p := dlog.NewProver[C, P](g, rnd, w)
+		v := dlog.NewVerifier[C, P](g, rnd, word)
+		e := dlog.NewExtractor[C, P](g)
 		check := func(w dlog.Witness[C]) bool {
 			gw := g.Generator().Mul(w)
 			return word.X().Cmp(gw.X()) == 0
@@ -65,7 +65,7 @@ func testProtocol[C curve.Curve](t *testing.T, g curve.Generator[C]) {
 
 }
 
-func runProtocol[C curve.Curve](t *testing.T, p dlog.Prover[C], v dlog.Verifier[C]) error {
+func runProtocol[C curve.Curve, P sigma.Protocol[C]](t *testing.T, p dlog.Prover[C, P], v dlog.Verifier[C, P]) error {
 	com, decom, err := p.Commit()
 	if err != nil {
 		t.Fatal(err)
@@ -80,11 +80,11 @@ func runProtocol[C curve.Curve](t *testing.T, p dlog.Prover[C], v dlog.Verifier[
 	return v.Verify(com, ch, resp)
 }
 
-func extract[C curve.Curve](
+func extract[C curve.Curve, P sigma.Protocol[C]](
 	t *testing.T,
-	p dlog.Prover[C],
-	v dlog.Verifier[C],
-	ext dlog.Extractor[C],
+	p dlog.Prover[C, P],
+	v dlog.Verifier[C, P],
+	ext dlog.Extractor[C, P],
 	relation func(dlog.Witness[C]) bool,
 ) {
 	com, decom, err := p.Commit()

@@ -19,7 +19,7 @@ type Prover[C curve.Curve, P Protocol[C]] interface {
 
 type Verifier[C curve.Curve, P Protocol[C]] interface {
 	Challenge(Commitment[C, P]) Challenge[C, P]
-	Verify(Commitment[C, P], Response[C, P]) error
+	Verify(Word[C, P], Commitment[C, P], Challenge[C, P], Response[C, P]) bool
 }
 
 type Extractor[C curve.Curve, P Protocol[C]] interface {
