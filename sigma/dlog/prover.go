@@ -10,10 +10,9 @@ import (
 
 type Protocol interface{}
 
-type Prover[C curve.Curve, P sigma.Protocol[C]] struct {
+type Prover[C curve.Curve, P sigma.Protocol] struct {
 	gen curve.Generator[C]
 	rnd io.Reader
-	w   Witness[C]
 }
 
 type Witness[C curve.Curve] curve.Scalar[C]
@@ -22,19 +21,20 @@ type Decommitment[C curve.Curve] curve.Scalar[C]
 type Challenge[C curve.Curve] curve.Scalar[C]
 type Response[C curve.Curve] curve.Scalar[C]
 
-func NewProver[C curve.Curve, P sigma.Protocol[C]](
+func NewProver[C curve.Curve, P sigma.Protocol](
 	gen curve.Generator[C],
 	rnd io.Reader,
-	w Witness[C],
 ) Prover[C, P] {
 	return Prover[C, P]{
 		gen: gen,
 		rnd: rnd,
-		w:   w,
 	}
 }
 
-func (p Prover[C, P]) Commit() (
+func (p Prover[C, P]) Commit(
+	sigma.Word[C, P],
+	sigma.Witness[C, P],
+) (
 	sigma.Commitment[C, P],
 	sigma.Decommitment[C, P],
 	error,
@@ -49,11 +49,14 @@ func (p Prover[C, P]) Commit() (
 }
 
 func (p Prover[C, P]) Respond(
+	_ sigma.Word[C, P],
+	w sigma.Witness[C, P],
 	decom sigma.Decommitment[C, P],
 	ch sigma.Challenge[C, P],
 ) sigma.Response[C, P] {
 	r := decom.(Decommitment[C])
 	c := ch.(Challenge[C])
-	s := r.Add(c.Mul(p.w))
+	dlogW := w.(Witness[C])
+	s := r.Add(c.Mul(dlogW))
 	return Response[C](s)
 }

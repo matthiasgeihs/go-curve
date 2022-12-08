@@ -5,11 +5,11 @@ import (
 	"github.com/matthiasgeihs/go-curve/sigma"
 )
 
-type Extractor[C curve.Curve, P sigma.Protocol[C]] struct {
+type Extractor[C curve.Curve, P sigma.Protocol] struct {
 	gen curve.Generator[C]
 }
 
-func NewExtractor[C curve.Curve, P sigma.Protocol[C]](
+func NewExtractor[C curve.Curve, P sigma.Protocol](
 	gen curve.Generator[C],
 ) Extractor[C, P] {
 	return Extractor[C, P]{
