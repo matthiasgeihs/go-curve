@@ -5,7 +5,7 @@ import (
 
 	"github.com/matthiasgeihs/go-curve/curve"
 	"github.com/matthiasgeihs/go-curve/sigma"
-	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
 type Prover[C curve.Curve, P sigma.Protocol] struct {
@@ -16,14 +16,14 @@ type Prover[C curve.Curve, P sigma.Protocol] struct {
 type Commitment[C curve.Curve, P sigma.Protocol] struct {
 	t        sigma.Commitment[C, P]
 	ch0, ch1 sigma.Challenge[C, P]
-	e0, e1   enc.Ciphertext
+	e0, e1   probenc.Ciphertext
 }
 type Decommitment[C curve.Curve, P sigma.Protocol] struct {
-	r0, r1 enc.Key
+	r0, r1 probenc.Key
 	s0, s1 sigma.Response[C, P]
 }
 type Response[C curve.Curve, P sigma.Protocol] struct {
-	r enc.Key
+	r probenc.Key
 	s sigma.Response[C, P]
 }
 
@@ -42,7 +42,7 @@ func NewProver[C curve.Curve, P sigma.Protocol](
 func (p Prover[C, P]) Commit(
 	x sigma.Word[C, P],
 	w sigma.Witness[C, P],
-	enc enc.Encrypt,
+	enc probenc.Encrypt,
 ) (
 	Commitment[C, P],
 	Decommitment[C, P],

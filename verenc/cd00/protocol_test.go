@@ -11,8 +11,8 @@ import (
 	"github.com/matthiasgeihs/go-curve/sigma"
 	"github.com/matthiasgeihs/go-curve/sigma/dlog"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00"
-	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
-	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc/rsa"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc/rsa"
 )
 
 func TestProtocol_secp256k1(t *testing.T) {
@@ -62,9 +62,9 @@ func runProtocol[C curve.Curve, P sigma.Protocol](
 	d cd00.Decrypter[C, P],
 	x sigma.Word[C, P],
 	w sigma.Witness[C, P],
-	enc enc.Encrypt,
-	verEnc enc.VerifyEncrypt,
-	dec enc.Decrypt,
+	enc probenc.Encrypt,
+	verEnc probenc.VerifyEncrypt,
+	dec probenc.Decrypt,
 	encoder sigma.Encoder[C, P],
 ) {
 	com, decom, err := p.Commit(x, w, enc)

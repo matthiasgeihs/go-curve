@@ -5,7 +5,7 @@ import (
 
 	"github.com/matthiasgeihs/go-curve/curve"
 	"github.com/matthiasgeihs/go-curve/sigma"
-	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
 type Decrypter[C curve.Curve, P sigma.Protocol] struct {
@@ -25,7 +25,7 @@ func NewDecrypter[C curve.Curve, P sigma.Protocol](
 
 func (d Decrypter[C, P]) Decrypt(
 	ct Ciphertext[C, P],
-	dec enc.Decrypt,
+	dec probenc.Decrypt,
 ) (sigma.Witness[C, P], error) {
 	c0, c1 := ct.c0, ct.c1
 	s0, s1, err := func() (sigma.Response[C, P], sigma.Response[C, P], error) {

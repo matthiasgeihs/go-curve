@@ -1,4 +1,4 @@
-package enc
+package probenc
 
 type Encrypt func([]byte) (Ciphertext, Key, error)
 type VerifyEncrypt func(Key, Ciphertext, []byte) bool

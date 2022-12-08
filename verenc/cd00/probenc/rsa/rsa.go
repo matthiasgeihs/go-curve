@@ -9,7 +9,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
 var newHasher = func() hash.Hash {
@@ -18,9 +18,9 @@ var newHasher = func() hash.Hash {
 var label []byte = nil
 
 func NewInstace(rnd io.Reader, l int) (
-	enc.Encrypt,
-	enc.VerifyEncrypt,
-	enc.Decrypt,
+	probenc.Encrypt,
+	probenc.VerifyEncrypt,
+	probenc.Decrypt,
 	error,
 ) {
 	sk, err := rsa.GenerateKey(rnd, l)
@@ -29,7 +29,7 @@ func NewInstace(rnd io.Reader, l int) (
 	}
 	pk := sk.PublicKey
 
-	encrypt := func(data []byte) (enc.Ciphertext, enc.Key, error) {
+	encrypt := func(data []byte) (probenc.Ciphertext, probenc.Key, error) {
 		var buf bytes.Buffer
 		rndExt := io.TeeReader(rnd, &buf)
 		ct, err := rsa.EncryptOAEP(newHasher(), rndExt, &pk, data, label)
@@ -39,7 +39,7 @@ func NewInstace(rnd io.Reader, l int) (
 		return ct, buf.Bytes(), nil
 	}
 
-	verifyEncrypt := func(k enc.Key, ct enc.Ciphertext, data []byte) bool {
+	verifyEncrypt := func(k probenc.Key, ct probenc.Ciphertext, data []byte) bool {
 		buf := bytes.NewBuffer(k.([]byte))
 		ctVer, err := rsa.EncryptOAEP(newHasher(), buf, &pk, data, label)
 		if err != nil {
@@ -49,7 +49,7 @@ func NewInstace(rnd io.Reader, l int) (
 		return bytes.Equal(ct.([]byte), ctVer)
 	}
 
-	decrypt := func(ct enc.Ciphertext) ([]byte, error) {
+	decrypt := func(ct probenc.Ciphertext) ([]byte, error) {
 		return rsa.DecryptOAEP(newHasher(), rnd, sk, ct.([]byte), label)
 	}
 

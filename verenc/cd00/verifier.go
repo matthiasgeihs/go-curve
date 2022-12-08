@@ -6,7 +6,7 @@ import (
 
 	"github.com/matthiasgeihs/go-curve/curve"
 	"github.com/matthiasgeihs/go-curve/sigma"
-	"github.com/matthiasgeihs/go-curve/verenc/cd00/enc"
+	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
 type Verifier[C curve.Curve, P sigma.Protocol] struct {
@@ -19,7 +19,7 @@ type Challenge bool
 type Ciphertext[C curve.Curve, P sigma.Protocol] struct {
 	c      Challenge
 	c0, c1 sigma.Challenge[C, P]
-	e      enc.Ciphertext
+	e      probenc.Ciphertext
 	s      sigma.Response[C, P]
 }
 
@@ -49,7 +49,7 @@ func (v Verifier[C, P]) Verify(
 	com Commitment[C, P],
 	ch Challenge,
 	resp Response[C, P],
-	verEnc enc.VerifyEncrypt,
+	verEnc probenc.VerifyEncrypt,
 ) (Ciphertext[C, P], error) {
 	sigmaCh := func() sigma.Challenge[C, P] {
 		if ch {
@@ -63,7 +63,7 @@ func (v Verifier[C, P]) Verify(
 		return Ciphertext[C, P]{}, fmt.Errorf("invalid sigma proof")
 	}
 
-	eCh, eCt := func() (enc.Ciphertext, enc.Ciphertext) {
+	eCh, eCt := func() (probenc.Ciphertext, probenc.Ciphertext) {
 		if ch {
 			return com.e1, com.e0
 		}
