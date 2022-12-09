@@ -17,6 +17,7 @@ type Verifier[C curve.Curve, P sigma.Protocol] struct {
 type Word[C curve.Curve] curve.Point[C]
 type Challenge bool
 type Ciphertext[C curve.Curve, P sigma.Protocol] struct {
+	t      sigma.Commitment[C, P]
 	c      Challenge
 	c0, c1 sigma.Challenge[C, P]
 	e      probenc.Ciphertext
@@ -75,5 +76,5 @@ func (v Verifier[C, P]) Verify(
 	if !valid {
 		return Ciphertext[C, P]{}, fmt.Errorf("invalid encryption")
 	}
-	return Ciphertext[C, P]{ch, com.ch0, com.ch1, eCt, resp.s}, nil
+	return Ciphertext[C, P]{com.t, ch, com.ch0, com.ch1, eCt, resp.s}, nil
 }

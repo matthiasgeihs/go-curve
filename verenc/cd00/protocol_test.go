@@ -15,6 +15,8 @@ import (
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc/rsa"
 )
 
+const secLevel = 64
+
 func TestProtocol_secp256k1(t *testing.T) {
 	type C = secp256k1.Curve
 	type P = dlog.Protocol
@@ -45,14 +47,14 @@ func setupAndRun[C curve.Curve, P sigma.Protocol](
 
 	p := cd00.NewProver[C, P](sigmaP, sigmaV, sigmaEnc)
 	v := cd00.NewVerifier[C, P](rnd, sigmaV, sigmaEnc)
-	d := cd00.NewDecrypter[C, P](sigmaExt, sigmaEnc)
+	d := cd00.NewDecrypter[C, P](sigmaV, sigmaExt, sigmaEnc)
 
 	w, err := g.RandomScalar(rnd)
 	if err != nil {
 		panic(err)
 	}
 	x := g.Generator().Mul(w)
-	runProtocol[C, P](t, p, v, d, x, w, encrypt, verifyEncrypt, decrypt, sigmaEnc)
+	runProtocol[C, P](t, p, v, d, x, w, encrypt, verifyEncrypt, decrypt, sigmaEnc, secLevel)
 }
 
 func runProtocol[C curve.Curve, P sigma.Protocol](
@@ -66,28 +68,41 @@ func runProtocol[C curve.Curve, P sigma.Protocol](
 	verEnc probenc.VerifyEncrypt,
 	dec probenc.Decrypt,
 	encoder sigma.Encoder[C, P],
+	securityLevel uint,
 ) {
-	com, decom, err := p.Commit(x, w, enc)
-	if err != nil {
-		t.Fatal(err)
+	// Run protocol repeatedly to increase chance of catching cheating prover.
+	ct := make([]cd00.Ciphertext[C, P], securityLevel)
+	for i := uint(0); i < securityLevel; i++ {
+		com, decom, err := p.Commit(x, w, enc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ch := v.Challenge(com)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp := p.Respond(decom, ch)
+		ct[i], err = v.Verify(x, com, ch, resp, verEnc)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 
-	ch := v.Challenge(com)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Decrypt.
+	wDec := func() sigma.Witness[C, P] {
+		for _, cti := range ct {
+			wDec, err := d.Decrypt(cti, x, dec)
+			if err == nil {
+				return wDec
+			}
+		}
+		t.Fatal("should decrypt")
+		return nil
+	}()
 
-	resp := p.Respond(decom, ch)
-	ct, err := v.Verify(x, com, ch, resp, verEnc)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wDec, err := d.Decrypt(ct, dec)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	// Check correct decryption.
 	wBytes := encoder.EncodeWitness(w)
 	wDecBytes := encoder.EncodeWitness(wDec)
 	if !bytes.Equal(wBytes, wDecBytes) {
