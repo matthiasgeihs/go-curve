@@ -14,13 +14,13 @@ type Prover[C curve.Curve, P sigma.Protocol] struct {
 	encoder sigma.Encoder[C, P]
 }
 type Commitment[C curve.Curve, P sigma.Protocol] struct {
-	t        sigma.Commitment[C, P]
-	ch0, ch1 sigma.Challenge[C, P]
-	e0, e1   probenc.Ciphertext
+	t  sigma.Commitment[C, P]
+	ch [2]sigma.Challenge[C, P]
+	e  [2]probenc.Ciphertext
 }
 type Decommitment[C curve.Curve, P sigma.Protocol] struct {
-	r0, r1 probenc.Key
-	s0, s1 sigma.Response[C, P]
+	r [2]probenc.Key
+	s [2]sigma.Response[C, P]
 }
 type Response[C curve.Curve, P sigma.Protocol] struct {
 	r probenc.Key
@@ -72,8 +72,15 @@ func (p Prover[C, P]) Commit(
 		return Commitment[C, P]{}, Decommitment[C, P]{}, fmt.Errorf("encrypting s1: %w", err)
 	}
 
-	com := Commitment[C, P]{t, ch0, ch1, e0, e1}
-	decom := Decommitment[C, P]{r0, r1, s0, s1}
+	com := Commitment[C, P]{
+		t,
+		[2]sigma.Challenge[C, P]{ch0, ch1},
+		[2]probenc.Ciphertext{e0, e1},
+	}
+	decom := Decommitment[C, P]{
+		[2]probenc.Key{r0, r1},
+		[2]sigma.Response[C, P]{s0, s1},
+	}
 	return com, decom, nil
 }
 
@@ -81,8 +88,13 @@ func (p Prover[C, P]) Respond(
 	decom Decommitment[C, P],
 	ch Challenge,
 ) Response[C, P] {
-	if bool(ch) {
-		return Response[C, P]{decom.r1, decom.s1}
+	chi := chtoi(ch)
+	return Response[C, P]{decom.r[chi], decom.s[chi]}
+}
+
+func chtoi(ch Challenge) int {
+	if ch {
+		return 1
 	}
-	return Response[C, P]{decom.r0, decom.s0}
+	return 0
 }

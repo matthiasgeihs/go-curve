@@ -31,32 +31,22 @@ func (d Decrypter[C, P]) Decrypt(
 	x sigma.Word[C, P],
 	dec probenc.Decrypt,
 ) (sigma.Witness[C, P], error) {
-	c0, c1 := ct.c0, ct.c1
-	s0, s1, err := func() (sigma.Response[C, P], sigma.Response[C, P], error) {
-		decBytes, err := dec(ct.e)
-		if err != nil {
-			return nil, nil, fmt.Errorf("decrypting: %w", err)
-		}
-		sDec := d.encoder.DecodeResponse(decBytes)
-		if ct.c {
-			valid := d.ver.Verify(x, ct.t, c0, sDec)
-			if !valid {
-				return nil, nil, fmt.Errorf("invalid challenge reponse 1")
-			}
-			return sDec, ct.s, nil
-		}
-		valid := d.ver.Verify(x, ct.t, c1, sDec)
-		if !valid {
-			return nil, nil, fmt.Errorf("invalid challenge reponse 0")
-		}
-		return ct.s, sDec, nil
-	}()
+	decBytes, err := dec(ct.e)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decrypting: %w", err)
 	}
 
-	t0 := sigma.MakeTranscript(c0, s0)
-	t1 := sigma.MakeTranscript(c1, s1)
+	ch := ct.sigmaCh
+	chi := chtoi(ct.c)
+	sDec := d.encoder.DecodeResponse(decBytes)
+	valid := d.ver.Verify(x, ct.t, ch[1-chi], sDec)
+	if !valid {
+		return nil, fmt.Errorf("invalid challenge reponse")
+	}
+
+	s := [2]sigma.Response[C, P]{ct.s, sDec}
+	t0 := sigma.MakeTranscript(ch[0], s[chi])
+	t1 := sigma.MakeTranscript(ch[1], s[1-chi])
 	w := d.ext.Extract(t0, t1)
 	return w, nil
 }

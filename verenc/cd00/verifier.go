@@ -17,11 +17,11 @@ type Verifier[C curve.Curve, P sigma.Protocol] struct {
 type Word[C curve.Curve] curve.Point[C]
 type Challenge bool
 type Ciphertext[C curve.Curve, P sigma.Protocol] struct {
-	t      sigma.Commitment[C, P]
-	c      Challenge
-	c0, c1 sigma.Challenge[C, P]
-	e      probenc.Ciphertext
-	s      sigma.Response[C, P]
+	t       sigma.Commitment[C, P]
+	c       Challenge
+	sigmaCh [2]sigma.Challenge[C, P]
+	e       probenc.Ciphertext
+	s       sigma.Response[C, P]
 }
 
 func NewVerifier[C curve.Curve, P sigma.Protocol](
@@ -52,29 +52,25 @@ func (v Verifier[C, P]) Verify(
 	resp Response[C, P],
 	verEnc probenc.VerifyEncrypt,
 ) (Ciphertext[C, P], error) {
-	sigmaCh := func() sigma.Challenge[C, P] {
-		if ch {
-			return com.ch1
-		}
-		return com.ch0
-	}()
+	chi := chtoi(ch)
+	sigmaCh := com.ch[chi]
 
 	b := v.sigmaV.Verify(x, com.t, sigmaCh, resp.s)
 	if !b {
 		return Ciphertext[C, P]{}, fmt.Errorf("invalid sigma proof")
 	}
 
-	eCh, eCt := func() (probenc.Ciphertext, probenc.Ciphertext) {
-		if ch {
-			return com.e1, com.e0
-		}
-		return com.e0, com.e1
-	}()
-
+	eCh, eCt := com.e[chi], com.e[1-chi]
 	sBytes := v.encoder.EncodeResponse(resp.s)
 	valid := verEnc(resp.r, eCh, sBytes)
 	if !valid {
 		return Ciphertext[C, P]{}, fmt.Errorf("invalid encryption")
 	}
-	return Ciphertext[C, P]{com.t, ch, com.ch0, com.ch1, eCt, resp.s}, nil
+	return Ciphertext[C, P]{
+		com.t,
+		ch,
+		com.ch,
+		eCt,
+		resp.s,
+	}, nil
 }
