@@ -11,35 +11,53 @@ import (
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
+type Scheme struct{}
+
 var newHasher = func() hash.Hash {
 	return sha256.New()
 }
 var label []byte = nil
 
 func NewInstace(rnd io.Reader, l int) (
-	probenc.Encrypt,
-	probenc.Decrypt,
+	probenc.Encrypter[Scheme],
+	probenc.Decrypter[Scheme],
 	error,
 ) {
 	sk, err := rsa.GenerateKey(rnd, l)
 	if err != nil {
-		return nil, nil, fmt.Errorf("generating secret key: %w", err)
+		return Encrypter{}, Decrypter{}, fmt.Errorf("generating secret key: %w", err)
 	}
 	pk := sk.PublicKey
 
-	encrypt := func(rnd io.Reader, data []byte) (probenc.Ciphertext, error) {
-		var buf bytes.Buffer
-		rndExt := io.TeeReader(rnd, &buf)
-		ct, err := rsa.EncryptOAEP(newHasher(), rndExt, &pk, data, label)
-		if err != nil {
-			return nil, err
-		}
-		return ct, nil
+	encrypter := Encrypter{
+		pk: &pk,
 	}
-
-	decrypt := func(ct probenc.Ciphertext) ([]byte, error) {
-		return rsa.DecryptOAEP(newHasher(), rnd, sk, ct, label)
+	decrypter := Decrypter{
+		sk:  sk,
+		rnd: rnd,
 	}
+	return encrypter, decrypter, nil
+}
 
-	return encrypt, decrypt, nil
+type Encrypter struct {
+	pk *rsa.PublicKey
+}
+
+func (e Encrypter) Encrypt(rnd io.Reader, data []byte) (probenc.Ciphertext[Scheme], error) {
+	var buf bytes.Buffer
+	rndExt := io.TeeReader(rnd, &buf)
+	ct, err := rsa.EncryptOAEP(newHasher(), rndExt, e.pk, data, label)
+	if err != nil {
+		return nil, err
+	}
+	return ct, nil
+}
+
+type Decrypter struct {
+	sk  *rsa.PrivateKey
+	rnd io.Reader
+}
+
+func (d Decrypter) Decrypt(ct probenc.Ciphertext[Scheme]) ([]byte, error) {
+	return rsa.DecryptOAEP(newHasher(), d.rnd, d.sk, ct, label)
 }

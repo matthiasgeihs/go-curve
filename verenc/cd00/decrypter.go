@@ -8,30 +8,32 @@ import (
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
-type Decrypter[C curve.Curve, P sigma.Protocol] struct {
-	ver     sigma.Verifier[C, P]
-	ext     sigma.Extractor[C, P]
-	encoder sigma.Encoder[C, P]
+type Decrypter[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
+	ver       sigma.Verifier[C, P]
+	ext       sigma.Extractor[C, P]
+	encoder   sigma.Encoder[C, P]
+	decrypter probenc.Decrypter[E]
 }
 
-func NewDecrypter[C curve.Curve, P sigma.Protocol](
+func NewDecrypter[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
 	ver sigma.Verifier[C, P],
 	ext sigma.Extractor[C, P],
 	encoder sigma.Encoder[C, P],
-) Decrypter[C, P] {
-	return Decrypter[C, P]{
-		ver:     ver,
-		ext:     ext,
-		encoder: encoder,
+	decrypter probenc.Decrypter[E],
+) Decrypter[C, P, E] {
+	return Decrypter[C, P, E]{
+		ver:       ver,
+		ext:       ext,
+		encoder:   encoder,
+		decrypter: decrypter,
 	}
 }
 
-func (d Decrypter[C, P]) Decrypt(
-	ct Ciphertext[C, P],
+func (d Decrypter[C, P, E]) Decrypt(
+	ct Ciphertext[C, P, E],
 	x sigma.Word[C, P],
-	dec probenc.Decrypt,
 ) (sigma.Witness[C, P], error) {
-	decBytes, err := dec(ct.e)
+	decBytes, err := d.decrypter.Decrypt(ct.e)
 	if err != nil {
 		return nil, fmt.Errorf("decrypting: %w", err)
 	}
