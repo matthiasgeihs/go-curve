@@ -40,12 +40,12 @@ func setupAndRun[C curve.Curve, P sigma.Protocol](
 	sigmaV := dlog.NewVerifier[C, P](g, rnd)
 	sigmaExt := dlog.NewExtractor[C, P](g)
 	sigmaEnc := dlog.NewEncoder[C, P](g)
-	encrypt, verifyEncrypt, decrypt, err := rsa.NewInstace(rnd, 2048)
+	encrypt, decrypt, err := rsa.NewInstace(rnd, 2048)
 	if err != nil {
 		panic(err)
 	}
 
-	p := cd00.NewProver[C, P](sigmaP, sigmaV, sigmaEnc)
+	p := cd00.NewProver[C, P](sigmaP, sigmaV, sigmaEnc, rnd)
 	v := cd00.NewVerifier[C, P](rnd, sigmaV, sigmaEnc)
 	d := cd00.NewDecrypter[C, P](sigmaV, sigmaExt, sigmaEnc)
 
@@ -54,7 +54,7 @@ func setupAndRun[C curve.Curve, P sigma.Protocol](
 		panic(err)
 	}
 	x := g.Generator().Mul(w)
-	runProtocol[C, P](t, p, v, d, x, w, encrypt, verifyEncrypt, decrypt, sigmaEnc, secLevel)
+	runProtocol[C, P](t, p, v, d, x, w, encrypt, decrypt, sigmaEnc, secLevel)
 }
 
 func runProtocol[C curve.Curve, P sigma.Protocol](
@@ -65,7 +65,6 @@ func runProtocol[C curve.Curve, P sigma.Protocol](
 	x sigma.Word[C, P],
 	w sigma.Witness[C, P],
 	enc probenc.Encrypt,
-	verEnc probenc.VerifyEncrypt,
 	dec probenc.Decrypt,
 	encoder sigma.Encoder[C, P],
 	securityLevel uint,
@@ -84,7 +83,7 @@ func runProtocol[C curve.Curve, P sigma.Protocol](
 		}
 
 		resp := p.Respond(decom, ch)
-		ct[i], err = v.Verify(x, com, ch, resp, verEnc)
+		ct[i], err = v.Verify(x, com, ch, resp, enc)
 		if err != nil {
 			t.Error(err)
 		}

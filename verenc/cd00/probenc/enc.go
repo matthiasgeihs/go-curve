@@ -1,7 +1,7 @@
 package probenc
 
-type Encrypt func([]byte) (Ciphertext, Key, error)
-type VerifyEncrypt func(Key, Ciphertext, []byte) bool
+import "io"
+
+type Encrypt func(io.Reader, []byte) (Ciphertext, error)
 type Decrypt func(Ciphertext) ([]byte, error)
-type Ciphertext interface{}
-type Key interface{}
+type Ciphertext []byte

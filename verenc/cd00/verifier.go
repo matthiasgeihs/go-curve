@@ -1,6 +1,7 @@
 package cd00
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
@@ -50,7 +51,7 @@ func (v Verifier[C, P]) Verify(
 	com Commitment[C, P],
 	ch Challenge,
 	resp Response[C, P],
-	verEnc probenc.VerifyEncrypt,
+	enc probenc.Encrypt,
 ) (Ciphertext[C, P], error) {
 	chi := chtoi(ch)
 	sigmaCh := com.ch[chi]
@@ -62,8 +63,11 @@ func (v Verifier[C, P]) Verify(
 
 	eCh, eCt := com.e[chi], com.e[1-chi]
 	sBytes := v.encoder.EncodeResponse(resp.s)
-	valid := verEnc(resp.r, eCh, sBytes)
-	if !valid {
+	buf := bytes.NewBuffer(resp.r)
+	ctEnc, err := enc(buf, sBytes)
+	if err != nil {
+		return Ciphertext[C, P]{}, fmt.Errorf("failed to encrypt")
+	} else if !bytes.Equal(eCh, ctEnc) {
 		return Ciphertext[C, P]{}, fmt.Errorf("invalid encryption")
 	}
 	return Ciphertext[C, P]{
