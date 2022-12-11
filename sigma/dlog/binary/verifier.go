@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/sigma/dlog"
 )
 
@@ -28,9 +28,9 @@ func NewVerifier[C curve.Curve](
 	}
 }
 
-func (v Verifier[C]) Challenge(sigma.Commitment[C, Protocol]) (sigma.Challenge[C, Protocol], error) {
+func (v Verifier[C]) Challenge(sigma.Commitment[C, Protocol]) (sigma.Challenge, error) {
 	b, err := v.sampleBool()
-	return Challenge(b), err
+	return sigma.Challenge(b), err
 }
 
 func (v Verifier[C]) sampleBool() (bool, error) {
@@ -42,9 +42,9 @@ func (v Verifier[C]) sampleBool() (bool, error) {
 func (v Verifier[C]) Verify(
 	x sigma.Word[C, Protocol],
 	com sigma.Commitment[C, Protocol],
-	ch sigma.Challenge[C, Protocol],
+	ch sigma.Challenge,
 	resp sigma.Response[C, Protocol],
 ) bool {
-	chScalar := chToScalar(v.gen, ch.(Challenge))
+	chScalar := chToScalar(v.gen, ch)
 	return v.base.Verify(x, com, chScalar, resp)
 }

@@ -5,7 +5,7 @@ import (
 	"math/big"
 
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/sigma/dlog"
 )
 
@@ -15,8 +15,6 @@ type Prover[C curve.Curve] struct {
 	base dlog.Prover[C]
 	gen  curve.Generator[C]
 }
-
-type Challenge bool
 
 func NewProver[C curve.Curve](
 	gen curve.Generator[C],
@@ -44,14 +42,14 @@ func (p Prover[C]) Respond(
 	x sigma.Word[C, Protocol],
 	w sigma.Witness[C, Protocol],
 	decom sigma.Decommitment[C, Protocol],
-	ch sigma.Challenge[C, Protocol],
+	ch sigma.Challenge,
 ) sigma.Response[C, Protocol] {
-	chScalar := chToScalar(p.gen, ch.(Challenge))
+	chScalar := chToScalar(p.gen, ch)
 	resp := p.base.Respond(x, w, decom, chScalar)
 	return resp
 }
 
-func chToScalar[C curve.Curve](gen curve.Generator[C], ch Challenge) curve.Scalar[C] {
+func chToScalar[C curve.Curve](gen curve.Generator[C], ch sigma.Challenge) curve.Scalar[C] {
 	i := boolToInt64(bool(ch))
 	bi := big.NewInt(i)
 	return gen.NewScalar(bi)

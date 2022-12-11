@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
@@ -21,7 +21,7 @@ type Challenge bool
 type Ciphertext[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	t       sigma.Commitment[C, P]
 	c       Challenge
-	sigmaCh [2]sigma.Challenge[C, P]
+	sigmaCh [2]sigma.Challenge
 	e       probenc.Ciphertext[E]
 	s       sigma.Response[C, P]
 }

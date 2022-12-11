@@ -8,7 +8,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve"
 	"github.com/matthiasgeihs/go-curve/curve/edwards25519"
 	"github.com/matthiasgeihs/go-curve/curve/secp256k1"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/sigma/dlog"
 	"github.com/matthiasgeihs/go-curve/sigma/dlog/binary"
 )
@@ -16,6 +16,8 @@ import (
 var _ sigma.Prover[secp256k1.Curve, binary.Protocol] = binary.Prover[secp256k1.Curve]{}
 var _ sigma.Verifier[secp256k1.Curve, binary.Protocol] = binary.Verifier[secp256k1.Curve]{}
 var _ sigma.Extractor[secp256k1.Curve, binary.Protocol] = binary.Extractor[secp256k1.Curve]{}
+
+const secLevel = 64
 
 func TestProtocol_secp256k1(t *testing.T) {
 	rnd := rand.Reader
@@ -64,7 +66,14 @@ func testProtocol[C curve.Curve, P sigma.Protocol](
 		if err != nil {
 			panic(err)
 		}
-		valid := runProtocol[C, P](t, p, v, x, w)
+		var valid = true
+		for i := 0; i < secLevel; i++ {
+			validRun := runProtocol[C, P](t, p, v, x, w)
+			if !validRun {
+				valid = false
+				break
+			}
+		}
 		if valid {
 			t.Error("proof should be invalid")
 		}
@@ -125,24 +134,18 @@ func extract[C curve.Curve, P sigma.Protocol](
 	x sigma.Word[C, P],
 	w sigma.Witness[C, P],
 ) {
-	com, decom, err := p.Commit(x, w)
+	_, decom, err := p.Commit(x, w)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Challenge-response 1.
-	ch1, err := v.Challenge(com)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ch1 := sigma.Challenge(false)
 	resp1 := p.Respond(x, w, decom, ch1)
 	t1 := sigma.MakeTranscript(ch1, resp1)
 
 	// Challenge-response 2.
-	ch2, err := v.Challenge(com)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ch2 := sigma.Challenge(true)
 	resp2 := p.Respond(x, w, decom, ch2)
 	t2 := sigma.MakeTranscript(ch2, resp2)
 

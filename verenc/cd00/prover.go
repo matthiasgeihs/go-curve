@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
@@ -19,7 +19,7 @@ type Prover[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 }
 type Commitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	t  sigma.Commitment[C, P]
-	ch [2]sigma.Challenge[C, P]
+	ch [2]sigma.Challenge
 	e  [2]probenc.Ciphertext[E]
 }
 type Decommitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
@@ -81,7 +81,7 @@ func (p Prover[C, P, E]) Commit(
 
 	com := Commitment[C, P, E]{
 		t,
-		[2]sigma.Challenge[C, P]{ch0, ch1},
+		[2]sigma.Challenge{ch0, ch1},
 		[2]probenc.Ciphertext[E]{e0, e1},
 	}
 	decom := Decommitment[C, P, E]{

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
@@ -47,8 +47,8 @@ func (d Decrypter[C, P, E]) Decrypt(
 	}
 
 	s := [2]sigma.Response[C, P]{ct.s, sDec}
-	t0 := sigma.MakeTranscript(ch[0], s[chi])
-	t1 := sigma.MakeTranscript(ch[1], s[1-chi])
+	t0 := sigma.MakeTranscript[C, P](ch[0], s[chi])
+	t1 := sigma.MakeTranscript[C, P](ch[1], s[1-chi])
 	w := d.ext.Extract(t0, t1)
 	return w, nil
 }
