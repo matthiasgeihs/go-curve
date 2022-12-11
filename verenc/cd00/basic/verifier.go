@@ -1,4 +1,4 @@
-package cd00
+package basic
 
 import (
 	"bytes"

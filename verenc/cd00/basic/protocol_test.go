@@ -1,4 +1,4 @@
-package cd00_test
+package basic_test
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/curve/secp256k1"
 	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	dlog "github.com/matthiasgeihs/go-curve/sigma/dlog/binary"
-	"github.com/matthiasgeihs/go-curve/verenc/cd00"
+	cd00 "github.com/matthiasgeihs/go-curve/verenc/cd00/basic"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc/rsa"
 )
