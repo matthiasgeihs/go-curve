@@ -8,43 +8,47 @@ import (
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
-type Decrypter[C curve.Curve, P sigma.Protocol] struct {
-	ext     sigma.Extractor[C, P]
-	encoder sigma.Encoder[C, P]
+type Decrypter[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
+	ver       sigma.Verifier[C, P]
+	ext       sigma.Extractor[C, P]
+	encoder   sigma.Encoder[C, P]
+	decrypter probenc.Decrypter[E]
 }
 
-func NewDecrypter[C curve.Curve, P sigma.Protocol](
+func NewDecrypter[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
+	ver sigma.Verifier[C, P],
 	ext sigma.Extractor[C, P],
 	encoder sigma.Encoder[C, P],
-) Decrypter[C, P] {
-	return Decrypter[C, P]{
-		ext:     ext,
-		encoder: encoder,
+	decrypter probenc.Decrypter[E],
+) Decrypter[C, P, E] {
+	return Decrypter[C, P, E]{
+		ver:       ver,
+		ext:       ext,
+		encoder:   encoder,
+		decrypter: decrypter,
 	}
 }
 
-func (d Decrypter[C, P]) Decrypt(
-	ct Ciphertext[C, P],
-	dec probenc.Decrypt,
+func (d Decrypter[C, P, E]) Decrypt(
+	ct Ciphertext[C, P, E],
+	x sigma.Word[C, P],
 ) (sigma.Witness[C, P], error) {
-	c0, c1 := ct.c0, ct.c1
-	s0, s1, err := func() (sigma.Response[C, P], sigma.Response[C, P], error) {
-		decBytes, err := dec(ct.e)
-		if err != nil {
-			return nil, nil, fmt.Errorf("decrypting: %w", err)
-		}
-		sDec := d.encoder.DecodeResponse(decBytes)
-		if ct.c {
-			return sDec, ct.s, nil
-		}
-		return ct.s, sDec, nil
-	}()
+	decBytes, err := d.decrypter.Decrypt(ct.e)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decrypting: %w", err)
 	}
 
-	t0 := sigma.MakeTranscript(c0, s0)
-	t1 := sigma.MakeTranscript(c1, s1)
+	ch := ct.sigmaCh
+	chi := chtoi(ct.c)
+	sDec := d.encoder.DecodeResponse(decBytes)
+	valid := d.ver.Verify(x, ct.t, ch[1-chi], sDec)
+	if !valid {
+		return nil, fmt.Errorf("invalid challenge reponse")
+	}
+
+	s := [2]sigma.Response[C, P]{ct.s, sDec}
+	t0 := sigma.MakeTranscript(ch[0], s[chi])
+	t1 := sigma.MakeTranscript(ch[1], s[1-chi])
 	w := d.ext.Extract(t0, t1)
 	return w, nil
 }

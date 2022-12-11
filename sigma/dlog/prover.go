@@ -8,7 +8,7 @@ import (
 	"github.com/matthiasgeihs/go-curve/sigma"
 )
 
-type Protocol interface{}
+type Protocol struct{}
 
 type Prover[C curve.Curve, P sigma.Protocol] struct {
 	gen curve.Generator[C]

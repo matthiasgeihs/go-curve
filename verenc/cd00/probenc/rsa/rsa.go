@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"log"
 
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
+
+type Scheme struct{}
 
 var newHasher = func() hash.Hash {
 	return sha256.New()
@@ -18,40 +19,45 @@ var newHasher = func() hash.Hash {
 var label []byte = nil
 
 func NewInstace(rnd io.Reader, l int) (
-	probenc.Encrypt,
-	probenc.VerifyEncrypt,
-	probenc.Decrypt,
+	probenc.Encrypter[Scheme],
+	probenc.Decrypter[Scheme],
 	error,
 ) {
 	sk, err := rsa.GenerateKey(rnd, l)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("generating secret key: %w", err)
+		return Encrypter{}, Decrypter{}, fmt.Errorf("generating secret key: %w", err)
 	}
 	pk := sk.PublicKey
 
-	encrypt := func(data []byte) (probenc.Ciphertext, probenc.Key, error) {
-		var buf bytes.Buffer
-		rndExt := io.TeeReader(rnd, &buf)
-		ct, err := rsa.EncryptOAEP(newHasher(), rndExt, &pk, data, label)
-		if err != nil {
-			return nil, nil, err
-		}
-		return ct, buf.Bytes(), nil
+	encrypter := Encrypter{
+		pk: &pk,
 	}
-
-	verifyEncrypt := func(k probenc.Key, ct probenc.Ciphertext, data []byte) bool {
-		buf := bytes.NewBuffer(k.([]byte))
-		ctVer, err := rsa.EncryptOAEP(newHasher(), buf, &pk, data, label)
-		if err != nil {
-			log.Printf("Warning: encrypt failed: %v", err)
-			return false
-		}
-		return bytes.Equal(ct.([]byte), ctVer)
+	decrypter := Decrypter{
+		sk:  sk,
+		rnd: rnd,
 	}
+	return encrypter, decrypter, nil
+}
 
-	decrypt := func(ct probenc.Ciphertext) ([]byte, error) {
-		return rsa.DecryptOAEP(newHasher(), rnd, sk, ct.([]byte), label)
+type Encrypter struct {
+	pk *rsa.PublicKey
+}
+
+func (e Encrypter) Encrypt(rnd io.Reader, data []byte) (probenc.Ciphertext[Scheme], error) {
+	var buf bytes.Buffer
+	rndExt := io.TeeReader(rnd, &buf)
+	ct, err := rsa.EncryptOAEP(newHasher(), rndExt, e.pk, data, label)
+	if err != nil {
+		return nil, err
 	}
+	return ct, nil
+}
 
-	return encrypt, verifyEncrypt, decrypt, nil
+type Decrypter struct {
+	sk  *rsa.PrivateKey
+	rnd io.Reader
+}
+
+func (d Decrypter) Decrypt(ct probenc.Ciphertext[Scheme]) ([]byte, error) {
+	return rsa.DecryptOAEP(newHasher(), d.rnd, d.sk, ct, label)
 }
