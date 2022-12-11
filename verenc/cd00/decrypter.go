@@ -38,17 +38,16 @@ func (d Decrypter[C, P, E]) Decrypt(
 		return nil, fmt.Errorf("decrypting: %w", err)
 	}
 
-	ch := ct.sigmaCh
-	chi := chtoi(ct.c)
 	sDec := d.encoder.DecodeResponse(decBytes)
-	valid := d.ver.Verify(x, ct.t, ch[1-chi], sDec)
+	valid := d.ver.Verify(x, ct.t, !ct.c, sDec)
 	if !valid {
 		return nil, fmt.Errorf("invalid challenge reponse")
 	}
 
+	chi := chtoi(ct.c)
 	s := [2]sigma.Response[C, P]{ct.s, sDec}
-	t0 := sigma.MakeTranscript[C, P](ch[0], s[chi])
-	t1 := sigma.MakeTranscript[C, P](ch[1], s[1-chi])
+	t0 := sigma.MakeTranscript(false, s[chi])
+	t1 := sigma.MakeTranscript(true, s[1-chi])
 	w := d.ext.Extract(t0, t1)
 	return w, nil
 }

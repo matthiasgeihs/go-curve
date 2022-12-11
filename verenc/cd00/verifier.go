@@ -17,13 +17,11 @@ type Verifier[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	encrypter probenc.Encrypter[E]
 }
 type Word[C curve.Curve] curve.Point[C]
-type Challenge bool
 type Ciphertext[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	t       sigma.Commitment[C, P]
-	c       Challenge
-	sigmaCh [2]sigma.Challenge
-	e       probenc.Ciphertext[E]
-	s       sigma.Response[C, P]
+	t sigma.Commitment[C, P]
+	c sigma.Challenge
+	e probenc.Ciphertext[E]
+	s sigma.Response[C, P]
 }
 
 func NewVerifier[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
@@ -40,29 +38,27 @@ func NewVerifier[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
 	}
 }
 
-func (v Verifier[C, P, E]) Challenge(Commitment[C, P, E]) Challenge {
+func (v Verifier[C, P, E]) Challenge(Commitment[C, P, E]) sigma.Challenge {
 	c := func() bool {
 		var b [1]byte
 		v.rnd.Read(b[:])
 		return b[0]&1 == 1
 	}()
-	return Challenge(c)
+	return sigma.Challenge(c)
 }
 
 func (v Verifier[C, P, E]) Verify(
 	x sigma.Word[C, P],
 	com Commitment[C, P, E],
-	ch Challenge,
+	ch sigma.Challenge,
 	resp Response[C, P, E],
 ) (Ciphertext[C, P, E], error) {
-	chi := chtoi(ch)
-	sigmaCh := com.ch[chi]
-
-	b := v.sigmaV.Verify(x, com.t, sigmaCh, resp.s)
+	b := v.sigmaV.Verify(x, com.t, ch, resp.s)
 	if !b {
 		return Ciphertext[C, P, E]{}, fmt.Errorf("invalid sigma proof")
 	}
 
+	chi := chtoi(ch)
 	eCh, eCt := com.e[chi], com.e[1-chi]
 	sBytes := v.encoder.EncodeResponse(resp.s)
 	buf := bytes.NewBuffer(resp.r)
@@ -75,7 +71,6 @@ func (v Verifier[C, P, E]) Verify(
 	return Ciphertext[C, P, E]{
 		com.t,
 		ch,
-		com.ch,
 		eCt,
 		resp.s,
 	}, nil
