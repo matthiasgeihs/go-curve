@@ -24,11 +24,15 @@ func TestProtocol_secp256k1(t *testing.T) {
 	type E = rsa.Scheme
 	rnd := rand.Reader
 	g := secp256k1.NewGenerator()
-	enc, dec, err := rsa.NewInstace(rnd, 2048)
+	p := dlog.NewProver[C](g, rnd)
+	v := dlog.NewVerifier[C](g, rnd)
+	ext := dlog.NewExtractor[C](g)
+	encoder := dlog.NewEncoder[C](g)
+	encrypter, decrypter, err := rsa.NewInstace(rnd, 2048)
 	if err != nil {
 		panic(err)
 	}
-	setupAndRun[C, P](t, rnd, g, enc, dec)
+	setupAndRun[C, P](t, rnd, g, p, v, ext, encoder, encrypter, decrypter)
 }
 
 func TestProtocol_edwards25519(t *testing.T) {
@@ -37,28 +41,31 @@ func TestProtocol_edwards25519(t *testing.T) {
 	type E = rsa.Scheme
 	rnd := rand.Reader
 	g := edwards25519.NewGenerator()
-	enc, dec, err := rsa.NewInstace(rnd, 2048)
+	p := dlog.NewProver[C](g, rnd)
+	v := dlog.NewVerifier[C](g, rnd)
+	ext := dlog.NewExtractor[C](g)
+	encoder := dlog.NewEncoder[C](g)
+	encrypter, decrypter, err := rsa.NewInstace(rnd, 2048)
 	if err != nil {
 		panic(err)
 	}
-	setupAndRun[C, P](t, rnd, g, enc, dec)
+	setupAndRun[C, P](t, rnd, g, p, v, ext, encoder, encrypter, decrypter)
 }
 
 func setupAndRun[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
 	t *testing.T,
 	rnd io.Reader,
 	g curve.Generator[C],
+	sigmaP sigma.Prover[C, P],
+	sigmaV sigma.Verifier[C, P],
+	sigmaExt sigma.Extractor[C, P],
+	sigmaEnc sigma.Encoder[C, P],
 	encrypter probenc.Encrypter[E],
 	decrypter probenc.Decrypter[E],
 ) {
-	sigmaP := dlog.NewProver[C, P](g, rnd)
-	sigmaV := dlog.NewVerifier[C, P](g, rnd)
-	sigmaExt := dlog.NewExtractor[C, P](g)
-	sigmaEnc := dlog.NewEncoder[C, P](g)
-
-	p := cd00.NewProver[C, P](sigmaP, sigmaV, sigmaEnc, encrypter, rnd)
-	v := cd00.NewVerifier[C, P](rnd, sigmaV, sigmaEnc, encrypter)
-	d := cd00.NewDecrypter[C, P](sigmaV, sigmaExt, sigmaEnc, decrypter)
+	p := cd00.NewProver(sigmaP, sigmaV, sigmaEnc, encrypter, rnd)
+	v := cd00.NewVerifier(rnd, sigmaV, sigmaEnc, encrypter)
+	d := cd00.NewDecrypter(sigmaV, sigmaExt, sigmaEnc, decrypter)
 
 	w, err := g.RandomScalar(rnd)
 	if err != nil {

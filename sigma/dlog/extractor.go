@@ -5,19 +5,19 @@ import (
 	"github.com/matthiasgeihs/go-curve/sigma"
 )
 
-type Extractor[C curve.Curve, P sigma.Protocol] struct {
+type Extractor[C curve.Curve] struct {
 	gen curve.Generator[C]
 }
 
-func NewExtractor[C curve.Curve, P sigma.Protocol](
+func NewExtractor[C curve.Curve](
 	gen curve.Generator[C],
-) Extractor[C, P] {
-	return Extractor[C, P]{
+) Extractor[C] {
+	return Extractor[C]{
 		gen: gen,
 	}
 }
 
-func (ext Extractor[C, P]) Extract(t1, t2 sigma.Transcript[C, P]) sigma.Witness[C, P] {
+func (ext Extractor[C]) Extract(t1, t2 sigma.Transcript[C, Protocol]) sigma.Witness[C, Protocol] {
 	s1 := t1.Response.(Response[C])
 	s2 := t2.Response.(Response[C])
 	s1s2 := s1.Sub(s2)
