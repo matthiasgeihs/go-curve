@@ -8,24 +8,24 @@ import (
 	"github.com/matthiasgeihs/go-curve/sigma"
 )
 
-type Verifier[C curve.Curve, P sigma.Protocol] struct {
+type Verifier[C curve.Curve] struct {
 	gen curve.Generator[C]
 	rnd io.Reader
 }
 
 type Word[C curve.Curve] curve.Point[C]
 
-func NewVerifier[C curve.Curve, P sigma.Protocol](
+func NewVerifier[C curve.Curve](
 	gen curve.Generator[C],
 	rnd io.Reader,
-) Verifier[C, P] {
-	return Verifier[C, P]{
+) Verifier[C] {
+	return Verifier[C]{
 		gen: gen,
 		rnd: rnd,
 	}
 }
 
-func (v Verifier[C, P]) Challenge(sigma.Commitment[C, P]) (sigma.Challenge[C, P], error) {
+func (v Verifier[C]) Challenge(sigma.Commitment[C, Protocol]) (sigma.Challenge[C, Protocol], error) {
 	c, err := v.gen.RandomScalar(v.rnd)
 	if err != nil {
 		return nil, fmt.Errorf("sampling scalar: %w", err)
@@ -33,11 +33,11 @@ func (v Verifier[C, P]) Challenge(sigma.Commitment[C, P]) (sigma.Challenge[C, P]
 	return c, nil
 }
 
-func (v Verifier[C, P]) Verify(
-	x sigma.Word[C, P],
-	com sigma.Commitment[C, P],
-	ch sigma.Challenge[C, P],
-	resp sigma.Response[C, P],
+func (v Verifier[C]) Verify(
+	x sigma.Word[C, Protocol],
+	com sigma.Commitment[C, Protocol],
+	ch sigma.Challenge[C, Protocol],
+	resp sigma.Response[C, Protocol],
 ) bool {
 	t := com.(Commitment[C])
 	c := ch.(Challenge[C])

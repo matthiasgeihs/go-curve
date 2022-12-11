@@ -11,8 +11,8 @@ type Encoder[C curve.Curve, P sigma.Protocol] struct {
 	gen curve.Generator[C]
 }
 
-func NewEncoder[C curve.Curve, P sigma.Protocol](gen curve.Generator[C]) Encoder[C, P] {
-	return Encoder[C, P]{
+func NewEncoder[C curve.Curve](gen curve.Generator[C]) Encoder[C, Protocol] {
+	return Encoder[C, Protocol]{
 		gen: gen,
 	}
 }
