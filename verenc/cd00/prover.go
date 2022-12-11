@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/sigma"
+	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
@@ -18,9 +18,8 @@ type Prover[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	rnd       io.Reader
 }
 type Commitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	t  sigma.Commitment[C, P]
-	ch [2]sigma.Challenge[C, P]
-	e  [2]probenc.Ciphertext[E]
+	t sigma.Commitment[C, P]
+	e [2]probenc.Ciphertext[E]
 }
 type Decommitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	r [2]RandomBytes
@@ -60,14 +59,7 @@ func (p Prover[C, P, E]) Commit(
 		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("sigma protocol commit: %w", err)
 	}
 
-	ch0, err := p.sigmaV.Challenge(t)
-	if err != nil {
-		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("sigma protocol challenge 1: %w", err)
-	}
-	ch1, err := p.sigmaV.Challenge(t)
-	if err != nil {
-		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("sigma protocol challenge 2: %w", err)
-	}
+	ch0, ch1 := sigma.Challenge(false), sigma.Challenge(true)
 	s0, s1 := p.sigmaP.Respond(x, w, rt, ch0), p.sigmaP.Respond(x, w, rt, ch1)
 	s0Bytes, s1Bytes := p.encoder.EncodeResponse(s0), p.encoder.EncodeResponse(s1)
 	e0, r0, err := encrypt(p.rnd, s0Bytes, p.encrypter)
@@ -81,7 +73,6 @@ func (p Prover[C, P, E]) Commit(
 
 	com := Commitment[C, P, E]{
 		t,
-		[2]sigma.Challenge[C, P]{ch0, ch1},
 		[2]probenc.Ciphertext[E]{e0, e1},
 	}
 	decom := Decommitment[C, P, E]{
@@ -113,13 +104,13 @@ func encrypt[E probenc.Scheme](
 
 func (p Prover[C, P, E]) Respond(
 	decom Decommitment[C, P, E],
-	ch Challenge,
+	ch sigma.Challenge,
 ) Response[C, P, E] {
 	chi := chtoi(ch)
 	return Response[C, P, E]{decom.r[chi], decom.s[chi]}
 }
 
-func chtoi(ch Challenge) int {
+func chtoi(ch sigma.Challenge) int {
 	if ch {
 		return 1
 	}
