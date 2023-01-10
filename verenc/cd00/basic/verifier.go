@@ -38,13 +38,19 @@ func NewVerifier[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
 	}
 }
 
-func (v Verifier[C, P, E]) Challenge(Commitment[C, P, E]) sigma.Challenge {
-	c := func() bool {
+func (v Verifier[C, P, E]) Challenge(Commitment[C, P, E]) (sigma.Challenge, error) {
+	c, err := func() (bool, error) {
 		var b [1]byte
-		v.rnd.Read(b[:])
-		return b[0]&1 == 1
+		_, err := v.rnd.Read(b[:])
+		if err != nil {
+			return false, fmt.Errorf("error reading rng: %w", err)
+		}
+		return b[0]&1 == 1, nil
 	}()
-	return sigma.Challenge(c)
+	if err != nil {
+		return false, err
+	}
+	return sigma.Challenge(c), nil
 }
 
 func (v Verifier[C, P, E]) Verify(

@@ -97,7 +97,7 @@ func runProtocol[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
 			t.Fatal(err)
 		}
 
-		ch := v.Challenge(com)
+		ch, err := v.Challenge(com)
 		if err != nil {
 			t.Fatal(err)
 		}
