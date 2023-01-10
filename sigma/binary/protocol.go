@@ -30,6 +30,8 @@ type Extractor[C curve.Curve, P Protocol] interface {
 }
 
 type Encoder[C curve.Curve, P Protocol] interface {
+	EncodeCommitment(Commitment[C, P]) ([]byte, error)
+	DecodeCommitment([]byte) (Commitment[C, P], error)
 	EncodeResponse(Response[C, P]) []byte
 	DecodeResponse([]byte) Response[C, P]
 	EncodeWitness(Witness[C, P]) []byte

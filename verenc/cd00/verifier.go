@@ -2,76 +2,160 @@ package cd00
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"io"
+	"math/big"
 
+	"github.com/matthiasgeihs/go-curve/commit"
 	"github.com/matthiasgeihs/go-curve/curve"
 	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
-type Verifier[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
+type Verifier[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme] struct {
 	rnd       io.Reader
-	sigmaV    sigma.Verifier[C, P]
-	encoder   sigma.Encoder[C, P]
+	k         uint
+	u         uint
+	encoder   *encoder[G, P, E]
+	comV      commit.Verifier[C]
+	sigmaV    sigma.Verifier[G, P]
 	encrypter probenc.Encrypter[E]
 }
-type Word[C curve.Curve] curve.Point[C]
-type Ciphertext[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	t sigma.Commitment[C, P]
-	c sigma.Challenge
-	e probenc.Ciphertext[E]
-	s sigma.Response[C, P]
+
+type Ciphertext[G curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
+	t []sigma.Commitment[G, P]
+	s []sigma.Response[G, P]
+	e []probenc.Ciphertext[E]
 }
 
-func NewVerifier[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
+func NewVerifier[
+	G curve.Curve,
+	P sigma.Protocol,
+	E probenc.Scheme,
+	C commit.Scheme,
+](
 	rnd io.Reader,
-	sigmaV sigma.Verifier[C, P],
-	encoder sigma.Encoder[C, P],
+	k uint,
+	u uint,
+	comV commit.Verifier[C],
+	sigmaV sigma.Verifier[G, P],
+	sigmaEnc sigma.Encoder[G, P],
 	encrypter probenc.Encrypter[E],
-) Verifier[C, P, E] {
-	return Verifier[C, P, E]{
+) *Verifier[G, P, E, C] {
+	return &Verifier[G, P, E, C]{
 		rnd:       rnd,
+		k:         k,
+		u:         u,
+		encoder:   newEncoder[G, P, E](sigmaEnc),
+		comV:      comV,
 		sigmaV:    sigmaV,
-		encoder:   encoder,
 		encrypter: encrypter,
 	}
 }
 
-func (v Verifier[C, P, E]) Challenge(Commitment[C, P, E]) sigma.Challenge {
-	c := func() bool {
-		var b [1]byte
-		v.rnd.Read(b[:])
-		return b[0]&1 == 1
-	}()
-	return sigma.Challenge(c)
+func (v *Verifier[G, P, E, C]) Challenge(Commitment[C]) (Challenge, error) {
+	return nChooseK(v.k, v.u, v.rnd)
 }
 
-func (v Verifier[C, P, E]) Verify(
-	x sigma.Word[C, P],
-	com Commitment[C, P, E],
-	ch sigma.Challenge,
-	resp Response[C, P, E],
-) (Ciphertext[C, P, E], error) {
-	b := v.sigmaV.Verify(x, com.t, ch, resp.s)
-	if !b {
-		return Ciphertext[C, P, E]{}, fmt.Errorf("invalid sigma proof")
+// nChooseK returns k random elements from {0, ..., n-1}.
+func nChooseK(n, k uint, rnd io.Reader) ([]uint, error) {
+	if k > n {
+		return nil, fmt.Errorf("k > n")
 	}
 
-	chi := chtoi(ch)
-	eCh, eCt := com.e[chi], com.e[1-chi]
-	sBytes := v.encoder.EncodeResponse(resp.s)
-	buf := bytes.NewBuffer(resp.r)
-	ctEnc, err := v.encrypter.Encrypt(buf, sBytes)
-	if err != nil {
-		return Ciphertext[C, P, E]{}, fmt.Errorf("failed to encrypt")
-	} else if !bytes.Equal(eCh, ctEnc) {
-		return Ciphertext[C, P, E]{}, fmt.Errorf("invalid encryption")
+	// Fill bag with 0, ..., n-1.
+	bag := make([]uint, n)
+	for i := uint(0); i < n; i++ {
+		bag[i] = i
 	}
-	return Ciphertext[C, P, E]{
-		com.t,
-		ch,
-		eCt,
-		resp.s,
+
+	// Select k numbers from bag at random.
+	selection := make([]uint, k)
+	l := int64(len(bag))
+	for i := uint(0); i < k; i++ {
+		jBig, err := rand.Int(rnd, big.NewInt(l))
+		if err != nil {
+			return nil, fmt.Errorf("sampling random number: %w", err)
+		}
+		j := jBig.Int64()
+		selection[i] = bag[j]
+
+		// Swap out chosen element.
+		bag[l-1], bag[j] = bag[j], bag[l-1]
+
+		//Reduce selection range.
+		l -= 1
+	}
+	return selection, nil
+}
+
+func (v *Verifier[G, P, E, C]) Verify(
+	x sigma.Word[G, P],
+	com Commitment[G],
+	ch Challenge,
+	resp Response[G, P, E, C],
+) (Ciphertext[G, P, E], error) {
+	// Open commitment.
+	encRespsBytes, err := v.encoder.EncodeEncryptedResponses(resp.encResps)
+	if err != nil {
+		return Ciphertext[G, P, E]{}, fmt.Errorf("encoding encrypted responses: %w", err)
+	}
+	err = v.comV.Verify(com, resp.d, encRespsBytes)
+	if err != nil {
+		return Ciphertext[G, P, E]{}, fmt.Errorf("verifying commitment: %w", err)
+	}
+
+	// Verify sigma responses.
+
+	// choices = [i in challenge]_{i in {0, ..., k-1}}.
+	choices := make([]bool, v.k)
+	for i := 0; i < len(ch); i++ {
+		choices[ch[i]] = true
+	}
+
+	comms := make([]sigma.Commitment[G, P], v.u)
+	resps := make([]sigma.Response[G, P], v.u)
+	encs := make([]probenc.Ciphertext[E], v.u)
+	storeI := 0
+	for i := uint(0); i < v.k; i++ {
+		if choices[i] {
+			// Verify sigma response for challenge 1.
+			comm := resp.encResps[i].t
+			sigmaResp := resp.s[i]
+			b := v.sigmaV.Verify(x, comm, true, sigmaResp)
+			if !b {
+				return Ciphertext[G, P, E]{}, fmt.Errorf("invalid sigma proof")
+			}
+
+			// Append to ciphertext.
+			comms[storeI] = comm
+			resps[storeI] = sigmaResp
+			encs[storeI] = resp.encResps[i].e
+			storeI += 1
+		} else {
+			// Verify sigma response for challenge 0.
+			b := v.sigmaV.Verify(x, resp.encResps[i].t, false, resp.s[i])
+			if !b {
+				return Ciphertext[G, P, E]{}, fmt.Errorf("invalid sigma proof")
+			}
+
+			// Check correct encryption.
+			sBytes := v.encoder.EncodeResponse(resp.s[i])
+			rBuf := bytes.NewBuffer(resp.r[i])
+			ctVer, err := v.encrypter.Encrypt(rBuf, sBytes)
+			ctCom := resp.encResps[i].e
+			if err != nil {
+				return Ciphertext[G, P, E]{}, fmt.Errorf("failed to encrypt: %w", err)
+			} else if !bytes.Equal(ctCom, ctVer) {
+				return Ciphertext[G, P, E]{}, fmt.Errorf("invalid encryption")
+			}
+		}
+	}
+
+	return Ciphertext[G, P, E]{
+		t: comms,
+		s: resps,
+		e: encs,
 	}, nil
 }

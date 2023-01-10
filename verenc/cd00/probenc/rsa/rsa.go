@@ -1,7 +1,6 @@
 package rsa
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
@@ -44,9 +43,7 @@ type Encrypter struct {
 }
 
 func (e Encrypter) Encrypt(rnd io.Reader, data []byte) (probenc.Ciphertext[Scheme], error) {
-	var buf bytes.Buffer
-	rndExt := io.TeeReader(rnd, &buf)
-	ct, err := rsa.EncryptOAEP(newHasher(), rndExt, e.pk, data, label)
+	ct, err := rsa.EncryptOAEP(newHasher(), rnd, e.pk, data, label)
 	if err != nil {
 		return nil, err
 	}

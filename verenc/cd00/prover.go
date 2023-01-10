@@ -1,118 +1,145 @@
 package cd00
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 
+	"github.com/matthiasgeihs/go-curve/commit"
 	"github.com/matthiasgeihs/go-curve/curve"
 	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc"
 )
 
-type Prover[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	sigmaP    sigma.Prover[C, P]
-	sigmaV    sigma.Verifier[C, P]
-	encoder   sigma.Encoder[C, P]
+type Prover[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme] struct {
+	sigmaP    sigma.Prover[G, P]
+	sigmaV    sigma.Verifier[G, P]
+	encoder   *encoder[G, P, E]
 	encrypter probenc.Encrypter[E]
+	committer commit.Committer[C]
 	rnd       io.Reader
-}
-type Commitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	t sigma.Commitment[C, P]
-	e [2]probenc.Ciphertext[E]
-}
-type Decommitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	r [2]RandomBytes
-	s [2]sigma.Response[C, P]
-}
-type Response[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	r RandomBytes
-	s sigma.Response[C, P]
+	k         uint
 }
 
-func NewProver[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
-	p sigma.Prover[C, P],
-	v sigma.Verifier[C, P],
-	encoder sigma.Encoder[C, P],
+type Commitment[C commit.Scheme] commit.Commitment[C]
+
+type Decommitment[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme] struct {
+	x       sigma.Word[G, P]
+	w       sigma.Witness[G, P]
+	decomms []sigma.Decommitment[C, P]
+	s       []EncryptedResponse[G, P, E]
+	r       []probenc.RandomBytes
+	decom   commit.Decommitment[C]
+}
+
+type Challenge []uint
+
+type Response[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme] struct {
+	encResps []EncryptedResponse[G, P, E]
+	d        commit.Decommitment[C]
+	s        []sigma.Response[G, P]
+	r        []probenc.RandomBytes
+}
+
+type EncryptedResponse[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
+	t sigma.Commitment[C, P]
+	e probenc.Ciphertext[E]
+}
+
+func NewProver[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme](
+	k uint,
+	p sigma.Prover[G, P],
+	v sigma.Verifier[G, P],
+	encoder sigma.Encoder[G, P],
 	encrypter probenc.Encrypter[E],
+	committer commit.Committer[C],
 	rnd io.Reader,
-) Prover[C, P, E] {
-	return Prover[C, P, E]{
+) *Prover[G, P, E, C] {
+	return &Prover[G, P, E, C]{
 		sigmaP:    p,
 		sigmaV:    v,
-		encoder:   encoder,
+		encoder:   newEncoder[G, P, E](encoder),
 		encrypter: encrypter,
+		committer: committer,
 		rnd:       rnd,
+		k:         k,
 	}
 }
 
-func (p Prover[C, P, E]) Commit(
-	x sigma.Word[C, P],
-	w sigma.Witness[C, P],
+func (p Prover[G, P, E, C]) Commit(
+	x sigma.Word[G, P],
+	w sigma.Witness[G, P],
 ) (
-	Commitment[C, P, E],
-	Decommitment[C, P, E],
+	Commitment[C],
+	Decommitment[G, P, E, C],
 	error,
 ) {
-	t, rt, err := p.sigmaP.Commit(x, w)
-	if err != nil {
-		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("sigma protocol commit: %w", err)
+	decomms := make([]sigma.Decommitment[C, P], p.k)
+	encResps := make([]EncryptedResponse[G, P, E], p.k)
+	rands := make([]probenc.RandomBytes, p.k)
+	for i := uint(0); i < p.k; i++ {
+		t, rt, err := p.sigmaP.Commit(x, w)
+		if err != nil {
+			return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("sigma protocol commit: %w", err)
+		}
+		ch0 := sigma.Challenge(false)
+		s0 := p.sigmaP.Respond(x, w, rt, ch0)
+		s0Bytes := p.encoder.EncodeResponse(s0)
+		e0, r0, err := probenc.Encrypt(p.rnd, s0Bytes, p.encrypter)
+		if err != nil {
+			return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("encrypting response %d: %w", i, err)
+		}
+		decomms[i] = rt
+		encResps[i] = EncryptedResponse[G, P, E]{t, e0}
+		rands[i] = r0
 	}
 
-	ch0, ch1 := sigma.Challenge(false), sigma.Challenge(true)
-	s0, s1 := p.sigmaP.Respond(x, w, rt, ch0), p.sigmaP.Respond(x, w, rt, ch1)
-	s0Bytes, s1Bytes := p.encoder.EncodeResponse(s0), p.encoder.EncodeResponse(s1)
-	e0, r0, err := encrypt(p.rnd, s0Bytes, p.encrypter)
+	data, err := p.encoder.EncodeEncryptedResponses(encResps)
 	if err != nil {
-		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("encrypting s0: %w", err)
+		return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("encoding encrypted responses: %w", err)
 	}
-	e1, r1, err := encrypt(p.rnd, s1Bytes, p.encrypter)
+	respCom, respDecom, err := p.committer.Commit(data)
 	if err != nil {
-		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("encrypting s1: %w", err)
+		return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("committing responses: %w", err)
 	}
-
-	com := Commitment[C, P, E]{
-		t,
-		[2]probenc.Ciphertext[E]{e0, e1},
-	}
-	decom := Decommitment[C, P, E]{
-		[2]RandomBytes{r0, r1},
-		[2]sigma.Response[C, P]{s0, s1},
+	com := respCom
+	decom := Decommitment[G, P, E, C]{
+		x,
+		w,
+		decomms,
+		encResps,
+		rands,
+		respDecom,
 	}
 	return com, decom, nil
 }
 
-type RandomBytes []byte
-
-// encrypt encrypts `data` using the probabilistic encryption algorithm `enc`
-// using `rnd` as source of randomness. It returns the ciphertext and the bytes
-// consumed from `rnd`.
-func encrypt[E probenc.Scheme](
-	rnd io.Reader,
-	data []byte,
-	enc probenc.Encrypter[E],
-) (probenc.Ciphertext[E], RandomBytes, error) {
-	var buf bytes.Buffer
-	rndExt := io.TeeReader(rnd, &buf)
-	ct, err := enc.Encrypt(rndExt, data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("encrypting data: %w", err)
+func (p Prover[G, P, E, C]) Respond(
+	decom Decommitment[G, P, E, C],
+	ch Challenge,
+) Response[G, P, E, C] {
+	// choices = [i in challenge]_{i in {0, ..., k-1}}.
+	choices := make([]bool, p.k)
+	for i := 0; i < len(ch); i++ {
+		choices[ch[i]] = true
 	}
-	r := buf.Bytes()
-	return ct, r, nil
-}
 
-func (p Prover[C, P, E]) Respond(
-	decom Decommitment[C, P, E],
-	ch sigma.Challenge,
-) Response[C, P, E] {
-	chi := chtoi(ch)
-	return Response[C, P, E]{decom.r[chi], decom.s[chi]}
-}
-
-func chtoi(ch sigma.Challenge) int {
-	if ch {
-		return 1
+	responses := make([]sigma.Response[G, P], p.k)
+	for i := uint(0); i < p.k; i++ {
+		ch := sigma.Challenge(choices[i])
+		responses[i] = p.sigmaP.Respond(decom.x, decom.w, decom.decomms[i], ch)
 	}
-	return 0
+
+	rbs := make([]probenc.RandomBytes, p.k)
+	for i := uint(0); i < p.k; i++ {
+		if !choices[i] {
+			rbs[i] = decom.r[i]
+		}
+	}
+
+	return Response[G, P, E, C]{
+		encResps: decom.s,
+		d:        decom.decom,
+		s:        responses,
+		r:        rbs,
+	}
 }

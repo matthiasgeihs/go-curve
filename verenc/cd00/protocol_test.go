@@ -6,8 +6,9 @@ import (
 	"io"
 	"testing"
 
+	"github.com/matthiasgeihs/go-curve/commit"
+	"github.com/matthiasgeihs/go-curve/commit/sha256"
 	"github.com/matthiasgeihs/go-curve/curve"
-	"github.com/matthiasgeihs/go-curve/curve/edwards25519"
 	"github.com/matthiasgeihs/go-curve/curve/secp256k1"
 	sigma "github.com/matthiasgeihs/go-curve/sigma/binary"
 	dlog "github.com/matthiasgeihs/go-curve/sigma/dlog/binary"
@@ -16,55 +17,44 @@ import (
 	"github.com/matthiasgeihs/go-curve/verenc/cd00/probenc/rsa"
 )
 
-const secLevel = 64
+const K = 712
+const U = 20
 
 func TestProtocol_secp256k1(t *testing.T) {
-	type C = secp256k1.Curve
+	type G = secp256k1.Curve
 	type P = dlog.Protocol
 	type E = rsa.Scheme
+	type C = sha256.Scheme
 	rnd := rand.Reader
 	g := secp256k1.NewGenerator()
-	p := dlog.NewProver[C](g, rnd)
-	v := dlog.NewVerifier[C](g, rnd)
-	ext := dlog.NewExtractor[C](g)
-	encoder := dlog.NewEncoder[C](g)
+	p := dlog.NewProver[G](g, rnd)
+	v := dlog.NewVerifier[G](g, rnd)
+	commC := sha256.NewCommitter(rnd)
+	commV := sha256.NewVerifier()
+	ext := dlog.NewExtractor[G](g)
+	encoder := dlog.NewEncoder[G](g)
 	encrypter, decrypter, err := rsa.NewInstace(rnd, 2048)
 	if err != nil {
 		panic(err)
 	}
-	setupAndRun[C, P](t, rnd, g, p, v, ext, encoder, encrypter, decrypter)
+	setupAndRun[G, P, E, C](t, rnd, g, commC, commV, p, v, ext, encoder, encrypter, decrypter)
 }
 
-func TestProtocol_edwards25519(t *testing.T) {
-	type C = edwards25519.Curve
-	type P = dlog.Protocol
-	type E = rsa.Scheme
-	rnd := rand.Reader
-	g := edwards25519.NewGenerator()
-	p := dlog.NewProver[C](g, rnd)
-	v := dlog.NewVerifier[C](g, rnd)
-	ext := dlog.NewExtractor[C](g)
-	encoder := dlog.NewEncoder[C](g)
-	encrypter, decrypter, err := rsa.NewInstace(rnd, 2048)
-	if err != nil {
-		panic(err)
-	}
-	setupAndRun[C, P](t, rnd, g, p, v, ext, encoder, encrypter, decrypter)
-}
-
-func setupAndRun[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
+func setupAndRun[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme](
 	t *testing.T,
 	rnd io.Reader,
-	g curve.Generator[C],
-	sigmaP sigma.Prover[C, P],
-	sigmaV sigma.Verifier[C, P],
-	sigmaExt sigma.Extractor[C, P],
-	sigmaEnc sigma.Encoder[C, P],
+	g curve.Generator[G],
+	commC commit.Committer[C],
+	commV commit.Verifier[C],
+	sigmaP sigma.Prover[G, P],
+	sigmaV sigma.Verifier[G, P],
+	sigmaExt sigma.Extractor[G, P],
+	sigmaEnc sigma.Encoder[G, P],
 	encrypter probenc.Encrypter[E],
 	decrypter probenc.Decrypter[E],
 ) {
-	p := cd00.NewProver(sigmaP, sigmaV, sigmaEnc, encrypter, rnd)
-	v := cd00.NewVerifier(rnd, sigmaV, sigmaEnc, encrypter)
+	p := cd00.NewProver(K, sigmaP, sigmaV, sigmaEnc, encrypter, commC, rnd)
+	v := cd00.NewVerifier(rnd, K, U, commV, sigmaV, sigmaEnc, encrypter)
 	d := cd00.NewDecrypter(sigmaV, sigmaExt, sigmaEnc, decrypter)
 
 	w, err := g.RandomScalar(rnd)
@@ -72,59 +62,47 @@ func setupAndRun[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
 		panic(err)
 	}
 	x := g.Generator().Mul(w)
-	runProtocol[C, P](
+	runProtocol[G, P](
 		t, p, v, d, x, w,
 		sigmaEnc,
-		secLevel,
 	)
 }
 
-func runProtocol[C curve.Curve, P sigma.Protocol, E probenc.Scheme](
+func runProtocol[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme](
 	t *testing.T,
-	p cd00.Prover[C, P, E],
-	v cd00.Verifier[C, P, E],
-	d cd00.Decrypter[C, P, E],
-	x sigma.Word[C, P],
-	w sigma.Witness[C, P],
-	encoder sigma.Encoder[C, P],
-	securityLevel uint,
+	p *cd00.Prover[G, P, E, C],
+	v *cd00.Verifier[G, P, E, C],
+	d *cd00.Decrypter[G, P, E],
+	x sigma.Word[G, P],
+	w sigma.Witness[G, P],
+	encoder sigma.Encoder[G, P],
 ) {
-	// Run protocol repeatedly to increase chance of catching cheating prover.
-	ct := make([]cd00.Ciphertext[C, P, E], securityLevel)
-	for i := uint(0); i < securityLevel; i++ {
-		com, decom, err := p.Commit(x, w)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		ch := v.Challenge(com)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp := p.Respond(decom, ch)
-		ct[i], err = v.Verify(x, com, ch, resp)
-		if err != nil {
-			t.Error(err)
-		}
+	com, decom, err := p.Commit(x, w)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	// Decrypt.
-	wDec := func() sigma.Witness[C, P] {
-		for _, cti := range ct {
-			wDec, err := d.Decrypt(cti, x)
-			if err == nil {
-				return wDec
-			}
-		}
-		t.Fatal("should decrypt")
-		return nil
-	}()
+	ch, err := v.Challenge(com)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp := p.Respond(decom, ch)
+
+	ct, err := v.Verify(x, com, ch, resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wDec, err := d.Decrypt(ct, x)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Check correct decryption.
 	wBytes := encoder.EncodeWitness(w)
 	wDecBytes := encoder.EncodeWitness(wDec)
 	if !bytes.Equal(wBytes, wDecBytes) {
-		t.Error("decrypted value should match encrypted value")
+		t.Error("decryption should equal encryption")
 	}
 }
