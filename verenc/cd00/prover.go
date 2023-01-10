@@ -46,20 +46,22 @@ type EncryptedResponse[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct
 }
 
 func NewProver[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme](
+	k uint,
 	p sigma.Prover[G, P],
 	v sigma.Verifier[G, P],
 	encoder sigma.Encoder[G, P],
 	encrypter probenc.Encrypter[E],
 	committer commit.Committer[C],
 	rnd io.Reader,
-) Prover[G, P, E, C] {
-	return Prover[G, P, E, C]{
+) *Prover[G, P, E, C] {
+	return &Prover[G, P, E, C]{
 		sigmaP:    p,
 		sigmaV:    v,
 		encoder:   newEncoder[G, P, E](encoder),
 		encrypter: encrypter,
 		committer: committer,
 		rnd:       rnd,
+		k:         k,
 	}
 }
 
@@ -129,7 +131,7 @@ func (p Prover[G, P, E, C]) Respond(
 
 	rbs := make([]probenc.RandomBytes, p.k)
 	for i := uint(0); i < p.k; i++ {
-		if choices[i] {
+		if !choices[i] {
 			rbs[i] = decom.r[i]
 		}
 	}

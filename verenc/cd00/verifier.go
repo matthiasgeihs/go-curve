@@ -82,7 +82,7 @@ func nChooseK(n, k uint, rnd io.Reader) ([]uint, error) {
 		selection[i] = bag[j]
 
 		// Swap out chosen element.
-		bag[l], bag[j] = bag[j], bag[l]
+		bag[l-1], bag[j] = bag[j], bag[l-1]
 
 		//Reduce selection range.
 		l -= 1
@@ -146,7 +146,7 @@ func (v *Verifier[G, P, E, C]) Verify(
 			ctVer, err := v.encrypter.Encrypt(rBuf, sBytes)
 			ctCom := resp.encResps[i].e
 			if err != nil {
-				return Ciphertext[G, P, E]{}, fmt.Errorf("failed to encrypt")
+				return Ciphertext[G, P, E]{}, fmt.Errorf("failed to encrypt: %w", err)
 			} else if !bytes.Equal(ctCom, ctVer) {
 				return Ciphertext[G, P, E]{}, fmt.Errorf("invalid encryption")
 			}
