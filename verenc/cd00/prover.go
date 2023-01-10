@@ -13,7 +13,7 @@ import (
 type Prover[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme] struct {
 	sigmaP    sigma.Prover[G, P]
 	sigmaV    sigma.Verifier[G, P]
-	encoder   *Encoder[G, P, E]
+	encoder   *encoder[G, P, E]
 	encrypter probenc.Encrypter[E]
 	committer commit.Committer[C]
 	rnd       io.Reader

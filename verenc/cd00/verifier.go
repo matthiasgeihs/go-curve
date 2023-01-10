@@ -17,9 +17,9 @@ type Verifier[G curve.Curve, P sigma.Protocol, E probenc.Scheme, C commit.Scheme
 	rnd       io.Reader
 	k         uint
 	u         uint
-	encoder   *Encoder[G, P, E]
+	encoder   *encoder[G, P, E]
 	comV      commit.Verifier[C]
-	sigmaV    sigma.Verifier[C, P]
+	sigmaV    sigma.Verifier[G, P]
 	encrypter probenc.Encrypter[E]
 }
 
@@ -27,6 +27,31 @@ type Ciphertext[G curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	t []sigma.Commitment[G, P]
 	s []sigma.Response[G, P]
 	e []probenc.Ciphertext[E]
+}
+
+func NewVerifier[
+	G curve.Curve,
+	P sigma.Protocol,
+	E probenc.Scheme,
+	C commit.Scheme,
+](
+	rnd io.Reader,
+	k uint,
+	u uint,
+	comV commit.Verifier[C],
+	sigmaV sigma.Verifier[G, P],
+	sigmaEnc sigma.Encoder[G, P],
+	encrypter probenc.Encrypter[E],
+) *Verifier[G, P, E, C] {
+	return &Verifier[G, P, E, C]{
+		rnd:       rnd,
+		k:         k,
+		u:         u,
+		encoder:   newEncoder[G, P, E](sigmaEnc),
+		comV:      comV,
+		sigmaV:    sigmaV,
+		encrypter: encrypter,
+	}
 }
 
 func (v *Verifier[G, P, E, C]) Challenge(Commitment[C]) (Challenge, error) {
