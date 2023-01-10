@@ -7,8 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-
-  build:
+  lint_build_test:
+    name: Lint, Build, Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -17,6 +17,11 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.50
 
       - name: Build
         run: go build -v ./...
