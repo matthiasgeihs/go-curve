@@ -84,14 +84,17 @@ func (p Prover[G, P, E, C]) Commit(
 		s0Bytes := p.encoder.EncodeResponse(s0)
 		e0, r0, err := probenc.Encrypt(p.rnd, s0Bytes, p.encrypter)
 		if err != nil {
-			return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("encrypting response %i: %w", i, err)
+			return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("encrypting response %d: %w", i, err)
 		}
 		decomms[i] = rt
 		encResps[i] = EncryptedResponse[G, P, E]{t, e0}
 		rands[i] = r0
 	}
 
-	data := p.encoder.EncodeEncryptedResponses(encResps)
+	data, err := p.encoder.EncodeEncryptedResponses(encResps)
+	if err != nil {
+		return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("encoding encrypted responses: %w", err)
+	}
 	respCom, respDecom, err := p.committer.Commit(data)
 	if err != nil {
 		return nil, Decommitment[G, P, E, C]{}, fmt.Errorf("committing responses: %w", err)

@@ -51,7 +51,7 @@ func nChooseK(n, k uint, rnd io.Reader) ([]uint, error) {
 	for i := uint(0); i < k; i++ {
 		jBig, err := rand.Int(rnd, big.NewInt(l))
 		if err != nil {
-			fmt.Errorf("sampling random number: %w", err)
+			return nil, fmt.Errorf("sampling random number: %w", err)
 		}
 		j := jBig.Int64()
 		selection[i] = bag[j]
@@ -72,8 +72,11 @@ func (v *Verifier[G, P, E, C]) Verify(
 	resp Response[G, P, E, C],
 ) (Ciphertext[G, P, E], error) {
 	// Open commitment.
-	encRespsBytes := v.encoder.EncodeEncryptedResponses(resp.encResps)
-	err := v.comV.Verify(com, resp.d, encRespsBytes)
+	encRespsBytes, err := v.encoder.EncodeEncryptedResponses(resp.encResps)
+	if err != nil {
+		return Ciphertext[G, P, E]{}, fmt.Errorf("encoding encrypted responses: %w", err)
+	}
+	err = v.comV.Verify(com, resp.d, encRespsBytes)
 	if err != nil {
 		return Ciphertext[G, P, E]{}, fmt.Errorf("verifying commitment: %w", err)
 	}
