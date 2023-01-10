@@ -7,6 +7,7 @@ type Committer[C Scheme] interface {
 }
 
 type Verifier[C Scheme] interface {
+	Verify(Commitment[C], Decommitment[C], []byte) error
 }
 
 type Commitment[C Scheme] interface{}
