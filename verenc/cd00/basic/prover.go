@@ -1,7 +1,6 @@
 package basic
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 
@@ -22,11 +21,11 @@ type Commitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
 	e [2]probenc.Ciphertext[E]
 }
 type Decommitment[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	r [2]RandomBytes
+	r [2]probenc.RandomBytes
 	s [2]sigma.Response[C, P]
 }
 type Response[C curve.Curve, P sigma.Protocol, E probenc.Scheme] struct {
-	r RandomBytes
+	r probenc.RandomBytes
 	s sigma.Response[C, P]
 }
 
@@ -62,11 +61,11 @@ func (p Prover[C, P, E]) Commit(
 	ch0, ch1 := sigma.Challenge(false), sigma.Challenge(true)
 	s0, s1 := p.sigmaP.Respond(x, w, rt, ch0), p.sigmaP.Respond(x, w, rt, ch1)
 	s0Bytes, s1Bytes := p.encoder.EncodeResponse(s0), p.encoder.EncodeResponse(s1)
-	e0, r0, err := encrypt(p.rnd, s0Bytes, p.encrypter)
+	e0, r0, err := probenc.Encrypt(p.rnd, s0Bytes, p.encrypter)
 	if err != nil {
 		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("encrypting s0: %w", err)
 	}
-	e1, r1, err := encrypt(p.rnd, s1Bytes, p.encrypter)
+	e1, r1, err := probenc.Encrypt(p.rnd, s1Bytes, p.encrypter)
 	if err != nil {
 		return Commitment[C, P, E]{}, Decommitment[C, P, E]{}, fmt.Errorf("encrypting s1: %w", err)
 	}
@@ -76,30 +75,10 @@ func (p Prover[C, P, E]) Commit(
 		[2]probenc.Ciphertext[E]{e0, e1},
 	}
 	decom := Decommitment[C, P, E]{
-		[2]RandomBytes{r0, r1},
+		[2]probenc.RandomBytes{r0, r1},
 		[2]sigma.Response[C, P]{s0, s1},
 	}
 	return com, decom, nil
-}
-
-type RandomBytes []byte
-
-// encrypt encrypts `data` using the probabilistic encryption algorithm `enc`
-// using `rnd` as source of randomness. It returns the ciphertext and the bytes
-// consumed from `rnd`.
-func encrypt[E probenc.Scheme](
-	rnd io.Reader,
-	data []byte,
-	enc probenc.Encrypter[E],
-) (probenc.Ciphertext[E], RandomBytes, error) {
-	var buf bytes.Buffer
-	rndExt := io.TeeReader(rnd, &buf)
-	ct, err := enc.Encrypt(rndExt, data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("encrypting data: %w", err)
-	}
-	r := buf.Bytes()
-	return ct, r, nil
 }
 
 func (p Prover[C, P, E]) Respond(
