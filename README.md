@@ -20,7 +20,7 @@ instance := ecdsa.NewECDSA[secp256k1.Curve](...)
 Keys and signatures produced by the scheme will also be parametrized by the selected curve type. This means that the outputs can be identified with the respective curve and the compiler will be able to check this. 
 
 ```go
-func (dsa *ECDSA[C]) Sign(sk SecretKey[C], m []byte) (Sig[C], error)
+func (dsa *ECDSA[C]) Sign(sk SecretKey[C], m []byte) (Sig[C], error) {...}
 ```
 
 ### Camenisch-Damgard verifiable encryption
@@ -40,14 +40,13 @@ func (p Prover[G, P, E, C]) Commit(
 	Commitment[C],
 	Decommitment[G, P, E, C],
 	error,
-)
+) {...}
 ```
-
-
 
 ## Development
 
 Install [Go](https://go.dev).
+
 Run the tests using `go test`.
 
 ```
