@@ -1,4 +1,4 @@
-# `go-curve`: Efficient and safe elliptic curve cryptography
+# `go-curve`: Efficient and (somewhat) type-safe elliptic curve cryptography
 
 `go-curve` is an **experimental** library of cryptographic primitives based on elliptic curves. It is written in Go and makes use of generics for providing some amount of type safety.
 
